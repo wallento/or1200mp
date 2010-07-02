@@ -259,6 +259,9 @@
 //
 //`define OR1200_VCD_DUMP
 
+// Enable multiprocessor mode
+`define OR1200_MP
+
 //
 // Generate debug messages during simulation
 //
@@ -374,6 +377,12 @@
 
 `endif
 
+`ifdef OR1200_MP
+// Set the core identifier register value not as parameter 
+// to the core, but as an input port to the system.
+// This can have advantages, when using verilator for example.
+`define OR1200_MP_COREID_AS_PORT
+`endif
 
 //////////////////////////////////////////////////////////
 //
@@ -923,6 +932,11 @@
 `define OR1200_SPR_EPCR		11'd32
 `define OR1200_SPR_EEAR		11'd48
 `define OR1200_SPR_ESR		11'd64
+
+// SPR register 9 contains the coreid of a core in a multiprocessor environment
+`ifdef OR1200_MP
+`define OR1200_SPR_COREID 11'd9
+`endif // OR1200_MP
 
 //
 // SR bits

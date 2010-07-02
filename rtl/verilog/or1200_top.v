@@ -186,11 +186,26 @@ module or1200_top(
 
 ,sig_tick		  
 
+`ifdef OR1200_MP
+`ifdef OR1200_MP_COREID_AS_PORT
+	, coreid_i // Add the core identifier as an external port, so that
+				  // it can be changed/configured externally
+`endif // OR1200_MP_COREID_AS_PORT
+`endif // OR1200_MP
+
 );
 
 parameter dw = `OR1200_OPERAND_WIDTH;
 parameter aw = `OR1200_OPERAND_WIDTH;
 parameter ppic_ints = `OR1200_PIC_INTS;
+
+// Multiprocessor core identifier as parameter
+`ifdef OR1200_MP
+`ifndef OR1200_MP_COREID_AS_PORT
+parameter coreid = 0;
+`endif // !OR1200_MP_COREID_AS_PORT
+`endif // OR1200_MP
+
 
 //
 // I/O
@@ -288,6 +303,13 @@ output			pm_tt_gate_o;
 output			pm_cpu_gate_o;
 output			pm_wakeup_o;
 output			pm_lvolt_o;
+
+// Multiprocessor version
+`ifdef OR1200_MP
+`ifdef OR1200_MP_COREID_AS_PORT
+input	[31:0]	coreid_i;
+`endif // OR1200_MP_COREID_AS_PORT
+`endif // OR1200_MP
 
 
 //
@@ -792,6 +814,14 @@ or1200_cpu or1200_cpu(
 	.spr_dat_npc(spr_dat_npc),
 	.spr_cs(spr_cs),
 	.spr_we(spr_we)
+	// Multiprocessor version
+`ifdef OR1200_MP
+`ifdef OR1200_MP_COREID_AS_PORT
+	,.spr_dat_coreid(coreid_i)
+`else
+	,.spr_dat_coreid(coreid)
+`endif // OR1200_MP_COREID_AS_PORT
+`endif // OR1200_MP
 );
 
 //

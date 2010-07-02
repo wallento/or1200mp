@@ -126,6 +126,9 @@ module or1200_sprs(
 		to_wbmux, epcr_we, eear_we, esr_we, pc_we, sr_we, to_sr, sr,
 		spr_dat_cfgr, spr_dat_rf, spr_dat_npc, spr_dat_ppc, spr_dat_mac,
 		boot_adr_sel_i,
+`ifdef OR1200_MP
+		spr_dat_coreid,
+`endif
 
 		// From/to other RISC units
 		spr_dat_pic, spr_dat_tt, spr_dat_pm,
@@ -178,6 +181,10 @@ input	[31:0]			spr_dat_npc;	// Data from NPC
 input	[31:0]			spr_dat_ppc;	// Data from PPC   
 input	[31:0]			spr_dat_mac;	// Data from MAC
 input				boot_adr_sel_i;
+`ifdef OR1200_MP
+input [31:0]			spr_dat_coreid; // The Core identifier register data
+`endif
+
 
 //
 // To/from other RISC units
@@ -219,6 +226,9 @@ wire 				sr_sel;		// Select for SR
 wire 				epcr_sel;	// Select for EPCR0
 wire 				eear_sel;	// Select for EEAR0
 wire 				esr_sel;	// Select for ESR0
+`ifdef OR1200_MP
+wire 				coreid_sel;
+`endif // OR1200_MP
 wire	[31:0]			sys_data;	// Read data from system SPRs
 wire				du_access;	// Debug unit access
 reg	[31:0]			unqualified_cs;	// Unqualified chip selects
@@ -343,6 +353,9 @@ assign sr_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR
 assign epcr_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR_EPCR));
 assign eear_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR_EEAR));
 assign esr_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR_ESR));
+`ifdef OR1200_MP
+assign coreid_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR_COREID));
+`endif // OR1200_MP
 
 //
 // Write enables for system SPRs
@@ -363,6 +376,9 @@ assign sys_data = (spr_dat_cfgr & {32{cfgr_sel}}) |
 		  ({{32-`OR1200_SR_WIDTH{1'b0}},sr} & {32{sr_sel}}) |
 		  (epcr & {32{epcr_sel}}) |
 		  (eear & {32{eear_sel}}) |
+`ifdef OR1200_MP
+			(spr_dat_coreid & {32{coreid_sel}}) |
+`endif // OR1200_MP
 		  ({{32-`OR1200_SR_WIDTH{1'b0}},esr} & {32{esr_sel}});
 
 //
