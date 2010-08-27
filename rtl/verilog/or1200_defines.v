@@ -1406,10 +1406,10 @@
 `define OR1200_VR_VER_BITS		31:24
 
 // VR values
-`define OR1200_VR_REV			6'h01
+`define OR1200_VR_REV			6'h00
 `define OR1200_VR_RES1			10'h000
 `define OR1200_VR_CFG			8'h00
-`define OR1200_VR_VER			8'h12
+`define OR1200_VR_VER			8'h13
 
 // UPR fields
 `define OR1200_UPR_UP_BITS		0
