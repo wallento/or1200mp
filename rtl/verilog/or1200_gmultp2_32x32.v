@@ -103,33 +103,32 @@ integer 		  yi;
 //
 // Conversion unsigned to signed
 //
- /* verilator lint_off COMBDLY */   
 always @(X)
-	xi <= X;
+	xi = X;
 
 //
 // Conversion unsigned to signed
 //
 always @(Y)
-	yi <= Y;
- /* verilator lint_on COMBDLY */
+	yi = Y;
+
 //
 // First multiply stage
 //
-always @(posedge CLK or posedge RST)
-        if (RST)
+always @(posedge CLK or `OR1200_RST_EVENT RST)
+        if (RST == `OR1200_RST_VALUE)
                 p0 <= `OR1200_WW'b0;
         else
-                p0 <= #1 xi * yi;
+                p0 <=  xi * yi;
 
 //
 // Second multiply stage
 //
-always @(posedge CLK or posedge RST)
-        if (RST)
+always @(posedge CLK or `OR1200_RST_EVENT RST)
+        if (RST == `OR1200_RST_VALUE)
                 p1 <= `OR1200_WW'b0;
         else
-                p1 <= #1 p0;
+                p1 <=  p0;
 
 assign P = p1;
 

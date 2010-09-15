@@ -66,7 +66,7 @@ module or1200_sprs(
 		spr_dat_coreid,
 `endif
 		
-		// Floating point control register and SPR input
+		// Floating point SPR input
 		fpcsr, fpcsr_we, spr_dat_fpu,
 
 		// From/to other RISC units
@@ -102,9 +102,9 @@ input	[width-1:0]		dat_i;		// SPR write data
 input                           ex_spr_read;	// l.mfspr in EX
 input                           ex_spr_write;	// l.mtspr in EX
 input	[`OR1200_BRANCHOP_WIDTH-1:0]	branch_op;	// Branch operation
-input	[width-1:0] 		epcr;		// EPCR0
-input	[width-1:0] 		eear;		// EEAR0
-input	[`OR1200_SR_WIDTH-1:0] 	esr;		// ESR0
+input	[width-1:0] 		epcr /* verilator public */;		// EPCR0
+input	[width-1:0] 		eear /* verilator public */;		// EEAR0
+input	[`OR1200_SR_WIDTH-1:0] 	esr /* verilator public */;		// ESR0
 input 				except_started; // Exception was started
 output	[width-1:0]		to_wbmux;	// For l.mfspr
 output				epcr_we;	// EPCR0 write enable
@@ -113,7 +113,7 @@ output				esr_we;		// ESR0 write enable
 output				pc_we;		// PC write enable
 output 				sr_we;		// Write enable SR
 output	[`OR1200_SR_WIDTH-1:0]	to_sr;		// Data to SR
-output	[`OR1200_SR_WIDTH-1:0]	sr;		// SR
+output	[`OR1200_SR_WIDTH-1:0]	sr /* verilator public */;		// SR
 input	[31:0]			spr_dat_cfgr;	// Data from CFGR
 input	[31:0]			spr_dat_rf;	// Data from RF
 input	[31:0]			spr_dat_npc;	// Data from NPC
@@ -298,15 +298,12 @@ assign sr_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR
 assign epcr_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR_EPCR));
 assign eear_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR_EEAR));
 assign esr_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR_ESR));
+assign fpcsr_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR_FPCSR));
 `ifdef OR1200_MP
 assign coreid_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR_COREID));
 `endif // OR1200_MP
-`ifdef OR1200_FPU_IMPLEMENTED
-assign fpcsr_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR_FPCSR));
-`else
-assign fpcsr_sel = 0;
-`endif
-   
+
+
 //
 // Write enables for system SPRs
 //
@@ -315,12 +312,8 @@ assign pc_we = (du_write && (npc_sel | ppc_sel));
 assign epcr_we = (spr_we && epcr_sel);
 assign eear_we = (spr_we && eear_sel);
 assign esr_we = (spr_we && esr_sel);
-`ifdef OR1200_FPU_IMPLEMENTED   
 assign fpcsr_we = (spr_we && fpcsr_sel);
-`else
-assign fpcsr_we = 0;
-`endif
-
+   
 //
 // Output from system SPRs
 //
@@ -334,9 +327,7 @@ assign sys_data = (spr_dat_cfgr & {32{cfgr_sel}}) |
 `ifdef OR1200_MP
 			(spr_dat_coreid & {32{coreid_sel}}) |
 `endif // OR1200_MP
-`ifdef OR1200_FPU_IMPLEMENTED
 		  ({{32-`OR1200_FPCSR_WIDTH{1'b0}},fpcsr} & {32{fpcsr_sel}}) |
-`endif
 		  ({{32-`OR1200_SR_WIDTH{1'b0}},esr} & {32{esr_sel}});
 
 //
@@ -352,28 +343,28 @@ assign carry = sr[`OR1200_SR_CY];
 //
 // Supervision register
 //
-always @(posedge clk or posedge rst)
-	if (rst)
-		sr_reg <= #1 {2'h1, `OR1200_SR_EPH_DEF, {`OR1200_SR_WIDTH-4{1'b0}}, 1'b1};
+always @(posedge clk or `OR1200_RST_EVENT rst)
+	if (rst == `OR1200_RST_VALUE)
+		sr_reg <=  {2'h1, `OR1200_SR_EPH_DEF, {`OR1200_SR_WIDTH-4{1'b0}}, 1'b1};
 	else if (except_started)
-		sr_reg <= #1 to_sr[`OR1200_SR_WIDTH-1:0];
+		sr_reg <=  to_sr[`OR1200_SR_WIDTH-1:0];
 	else if (sr_we)
-		sr_reg <= #1 to_sr[`OR1200_SR_WIDTH-1:0];
+		sr_reg <=  to_sr[`OR1200_SR_WIDTH-1:0];
 
 // EPH part of Supervision register
-always @(posedge clk or posedge rst)
+always @(posedge clk or `OR1200_RST_EVENT rst)
 	// default value 
-	if (rst) begin
-		sr_reg_bit_eph <= #1 `OR1200_SR_EPH_DEF;
-		sr_reg_bit_eph_select <= #1 1'b1;	// select async. value due to reset state
+	if (rst == `OR1200_RST_VALUE) begin
+		sr_reg_bit_eph <=  `OR1200_SR_EPH_DEF;
+		sr_reg_bit_eph_select <=  1'b1;	// select async. value due to reset state
 	end
 	// selected value (different from default) is written into FF after reset state
 	else if (sr_reg_bit_eph_select) begin
-		sr_reg_bit_eph <= #1 boot_adr_sel_i;	// dynamic value can only be assigned to FF out of reset! 
-		sr_reg_bit_eph_select <= #1 1'b0;	// select FF value 
+		sr_reg_bit_eph <=  boot_adr_sel_i;	// dynamic value can only be assigned to FF out of reset! 
+		sr_reg_bit_eph_select <=  1'b0;	// select FF value 
 	end
 	else if (sr_we) begin
-		sr_reg_bit_eph <= #1 to_sr[`OR1200_SR_EPH];
+		sr_reg_bit_eph <=  to_sr[`OR1200_SR_EPH];
 	end
 
 // select async. value of EPH bit after reset 
@@ -383,15 +374,41 @@ assign	sr_reg_bit_eph_muxed = (sr_reg_bit_eph_select) ? boot_adr_sel_i : sr_reg_
 always @(sr_reg or sr_reg_bit_eph_muxed)
 	sr = {sr_reg[`OR1200_SR_WIDTH-1:`OR1200_SR_WIDTH-2], sr_reg_bit_eph_muxed, sr_reg[`OR1200_SR_WIDTH-4:0]};
 
+`ifdef verilator
+   // Function to access various sprs (for Verilator). Have to hide this from
+   // simulator, since functions with no inputs are not allowed in IEEE
+   // 1364-2001.
+
+   function [31:0] get_sr;
+      // verilator public
+      get_sr = {{32-`OR1200_SR_WIDTH{1'b0}},sr};
+   endfunction // get_sr
+
+   function [31:0] get_epcr;
+      // verilator public
+      get_epcr = epcr;
+   endfunction // get_epcr
+
+   function [31:0] get_eear;
+      // verilator public
+      get_eear = eear;
+   endfunction // get_eear
+
+   function [31:0] get_esr;
+      // verilator public
+      get_esr = {{32-`OR1200_SR_WIDTH{1'b0}},esr};
+   endfunction // get_esr
+
+`endif
+
+   
 //
 // MTSPR/MFSPR interface
 //
 always @(spr_addr or sys_data or spr_dat_mac or spr_dat_pic or spr_dat_pm or
-`ifdef OR1200_FPU_IMPLEMENTED
 	 spr_dat_fpu or
-`endif	 
 	spr_dat_dmmu or spr_dat_immu or spr_dat_du or spr_dat_tt) begin
-		casex (spr_addr[`OR1200_SPR_GROUP_BITS]) // synopsys parallel_case
+		casez (spr_addr[`OR1200_SPR_GROUP_BITS]) // synopsys parallel_case
 			`OR1200_SPR_GROUP_SYS:
 				to_wbmux = sys_data;
 			`OR1200_SPR_GROUP_TT:
@@ -406,10 +423,8 @@ always @(spr_addr or sys_data or spr_dat_mac or spr_dat_pic or spr_dat_pm or
 				to_wbmux = spr_dat_immu;
 			`OR1200_SPR_GROUP_MAC:
 				to_wbmux = spr_dat_mac;
-`ifdef OR1200_FPU_IMPLEMENTED
 		        `OR1200_SPR_GROUP_FPU:
 			         to_wbmux = spr_dat_fpu;
-`endif
 			default: //`OR1200_SPR_GROUP_DU:
 				to_wbmux = spr_dat_du;
 		endcase

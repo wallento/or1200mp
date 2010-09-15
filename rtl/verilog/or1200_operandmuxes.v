@@ -94,33 +94,33 @@ reg				saved_b;
 //
 // Operand A register
 //
-always @(posedge clk or posedge rst) begin
-	if (rst) begin
-		operand_a <= #1 32'd0;
-		saved_a <= #1 1'b0;
+always @(posedge clk or `OR1200_RST_EVENT rst) begin
+	if (rst == `OR1200_RST_VALUE) begin
+		operand_a <=  32'd0;
+		saved_a <=  1'b0;
 	end else if (!ex_freeze && id_freeze && !saved_a) begin
-		operand_a <= #1 muxed_a;
-		saved_a <= #1 1'b1;
+		operand_a <=  muxed_a;
+		saved_a <=  1'b1;
 	end else if (!ex_freeze && !saved_a) begin
-		operand_a <= #1 muxed_a;
+		operand_a <=  muxed_a;
 	end else if (!ex_freeze && !id_freeze)
-		saved_a <= #1 1'b0;
+		saved_a <=  1'b0;
 end
 
 //
 // Operand B register
 //
-always @(posedge clk or posedge rst) begin
-	if (rst) begin
-		operand_b <= #1 32'd0;
-		saved_b <= #1 1'b0;
+always @(posedge clk or `OR1200_RST_EVENT rst) begin
+	if (rst == `OR1200_RST_VALUE) begin
+		operand_b <=  32'd0;
+		saved_b <=  1'b0;
 	end else if (!ex_freeze && id_freeze && !saved_b) begin
-		operand_b <= #1 muxed_b;
-		saved_b <= #1 1'b1;
+		operand_b <=  muxed_b;
+		saved_b <=  1'b1;
 	end else if (!ex_freeze && !saved_b) begin
-		operand_b <= #1 muxed_b;
+		operand_b <=  muxed_b;
 	end else if (!ex_freeze && !id_freeze)
-		saved_b <= #1 1'b0;
+		saved_b <=  1'b0;
 end
 
 //
@@ -128,9 +128,9 @@ end
 //
 always @(ex_forw or wb_forw or rf_dataa or sel_a) begin
 `ifdef OR1200_ADDITIONAL_SYNOPSYS_DIRECTIVES
-	casex (sel_a)	// synopsys parallel_case infer_mux
+	casez (sel_a)	// synopsys parallel_case infer_mux
 `else
-	casex (sel_a)	// synopsys parallel_case
+	casez (sel_a)	// synopsys parallel_case
 `endif
 		`OR1200_SEL_EX_FORW:
 			muxed_a = ex_forw;
@@ -146,9 +146,9 @@ end
 //
 always @(simm or ex_forw or wb_forw or rf_datab or sel_b) begin
 `ifdef OR1200_ADDITIONAL_SYNOPSYS_DIRECTIVES
-	casex (sel_b)	// synopsys parallel_case infer_mux
+	casez (sel_b)	// synopsys parallel_case infer_mux
 `else
-	casex (sel_b)	// synopsys parallel_case
+	casez (sel_b)	// synopsys parallel_case
 `endif
 		`OR1200_SEL_IMM:
 			muxed_b = simm;

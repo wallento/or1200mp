@@ -97,14 +97,14 @@ reg				muxreg_valid;
 //
 // Registered output from the write-back multiplexer
 //
-always @(posedge clk or posedge rst) begin
-	if (rst) begin
-		muxreg <= #1 32'd0;
-		muxreg_valid <= #1 1'b0;
+always @(posedge clk or `OR1200_RST_EVENT rst) begin
+	if (rst == `OR1200_RST_VALUE) begin
+		muxreg <=  32'd0;
+		muxreg_valid <=  1'b0;
 	end
 	else if (!wb_freeze) begin
-		muxreg <= #1 muxout;
-		muxreg_valid <= #1 rfwb_op[0];
+		muxreg <=  muxout;
+		muxreg_valid <=  rfwb_op[0];
 	end
 end
 
@@ -113,9 +113,9 @@ end
 //
 always @(muxin_a or muxin_b or muxin_c or muxin_d or muxin_e or rfwb_op) begin
 `ifdef OR1200_ADDITIONAL_SYNOPSYS_DIRECTIVES
-	case(rfwb_op[`OR1200_RFWBOP_WIDTH-1:1]) // synopsys parallel_case infer_mux
+	casez(rfwb_op[`OR1200_RFWBOP_WIDTH-1:1]) // synopsys parallel_case infer_mux
 `else
-	case(rfwb_op[`OR1200_RFWBOP_WIDTH-1:1]) // synopsys parallel_case
+	casez(rfwb_op[`OR1200_RFWBOP_WIDTH-1:1]) // synopsys parallel_case
 `endif
 		`OR1200_RFWBOP_ALU: muxout = muxin_a;
 		`OR1200_RFWBOP_LSU: begin
@@ -151,7 +151,11 @@ always @(muxin_a or muxin_b or muxin_c or muxin_d or muxin_e or rfwb_op) begin
 // synopsys translate_on
 `endif
 	       end		      
-`endif	  	  
+`endif
+	  default : begin
+	     muxout = 0;
+	  end
+	  
 	endcase
 end
 

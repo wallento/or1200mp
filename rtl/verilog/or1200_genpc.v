@@ -138,13 +138,13 @@ reg				genpc_refetch_r;
    //
    // genpc_freeze_r
    //
-   always @(posedge clk or posedge rst)
-     if (rst)
-       genpc_refetch_r <= #1 1'b0;
+   always @(posedge clk or `OR1200_RST_EVENT rst)
+     if (rst == `OR1200_RST_VALUE)
+       genpc_refetch_r <=  1'b0;
      else if (genpc_refetch)
-       genpc_refetch_r <= #1 1'b1;
+       genpc_refetch_r <=  1'b1;
      else
-       genpc_refetch_r <= #1 1'b0;
+       genpc_refetch_r <=  1'b0;
 
    //
    // Async calculation of new PC value. This value is used for addressing the
@@ -154,7 +154,7 @@ reg				genpc_refetch_r;
 	    or except_start or operand_b or epcr or spr_pc_we or spr_dat_i or 
 	    except_prefix) 
      begin
-	casex ({spr_pc_we, except_start, branch_op}) // synopsys parallel_case
+	casez ({spr_pc_we, except_start, branch_op}) // synopsys parallel_case
 	  {2'b00, `OR1200_BRANCHOP_NOP}: begin
 	     pc = {pcreg + 30'd1, 2'b0};
 	     ex_branch_taken = 1'b0;
@@ -229,7 +229,7 @@ reg				genpc_refetch_r;
 	     pc = epcr;
 	     ex_branch_taken = 1'b1;
 	  end
-	  {2'b01, 3'bxxx}: begin
+	  {2'b01, 3'b???}: begin
 `ifdef OR1200_VERBOSE
 	     // synopsys translate_off
 	     $display("Starting exception: %h.", except_type);
@@ -255,25 +255,25 @@ reg				genpc_refetch_r;
    //
    // PC register
    //
-   always @(posedge clk or posedge rst)
+   always @(posedge clk or `OR1200_RST_EVENT rst)
      // default value 
-     if (rst) begin
-	pcreg_default <= #1 `OR1200_BOOT_PCREG_DEFAULT; // jb
-	pcreg_select <= #1 1'b1;// select async. value due to reset state
+     if (rst == `OR1200_RST_VALUE) begin
+	pcreg_default <=  `OR1200_BOOT_PCREG_DEFAULT; // jb
+	pcreg_select <=  1'b1;// select async. value due to reset state
      end
    // selected value (different from default) is written into FF after
    // reset state
      else if (pcreg_select) begin
 	// dynamic value can only be assigned to FF out of reset! 
-	pcreg_default <= #1 pcreg_boot[31:2];	
-	pcreg_select <= #1 1'b0;		// select FF value 
+	pcreg_default <=  pcreg_boot[31:2];	
+	pcreg_select <=  1'b0;		// select FF value 
      end
      else if (spr_pc_we) begin
-	pcreg_default <= #1 spr_dat_i[31:2];
+	pcreg_default <=  spr_dat_i[31:2];
      end
      else if (no_more_dslot | except_start | !genpc_freeze & !icpu_rty_i 
 	      & !genpc_refetch) begin
-	pcreg_default <= #1 pc[31:2];
+	pcreg_default <=  pc[31:2];
      end
 
    // select async. value for pcreg after reset - PC jumps to the address selected

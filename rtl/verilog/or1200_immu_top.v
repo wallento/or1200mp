@@ -251,19 +251,19 @@ reg				dis_spr_access_scnd_clk;
 // icpu_adr_o
 //
 `ifdef OR1200_REGISTERED_OUTPUTS
-always @(posedge rst or posedge clk)
+always @(`OR1200_RST_EVENT rst or posedge clk)
 	// default value 
-	if (rst) begin
-		icpu_adr_default <= #1 32'h0000_0100;
-		icpu_adr_select  <= #1 1'b1;		// select async. value due to reset state
+	if (rst == `OR1200_RST_VALUE) begin
+		icpu_adr_default <=  32'h0000_0100;
+		icpu_adr_select  <=  1'b1;		// select async. value due to reset state
 	end
 	// selected value (different from default) is written into FF after reset state
 	else if (icpu_adr_select) begin
-		icpu_adr_default <= #1 icpu_adr_boot;	// dynamic value can only be assigned to FF out of reset! 
-		icpu_adr_select  <= #1 1'b0;		// select FF value 
+		icpu_adr_default <=  icpu_adr_boot;	// dynamic value can only be assigned to FF out of reset! 
+		icpu_adr_select  <=  1'b0;		// select FF value 
 	end
 	else begin
-		icpu_adr_default <= #1 icpu_adr_i;
+		icpu_adr_default <=  icpu_adr_i;
 	end
 
 // select async. value for boot address after reset - PC jumps to the address selected after boot! 
@@ -290,11 +290,11 @@ assign page_cross = icpu_adr_i[31:`OR1200_IMMU_PS] != icpu_vpn_r;
 // Register icpu_adr_i's VPN for use when IMMU is not enabled but PPN is expected to come
 // one clock cycle after offset part.
 //
-always @(posedge clk or posedge rst)
-	if (rst)
-		icpu_vpn_r <= #1 {32-`OR1200_IMMU_PS{1'b0}};
+always @(posedge clk or `OR1200_RST_EVENT rst)
+	if (rst == `OR1200_RST_VALUE)
+		icpu_vpn_r <=  {32-`OR1200_IMMU_PS{1'b0}};
 	else
-		icpu_vpn_r <= #1 icpu_adr_i[31:`OR1200_IMMU_PS];
+		icpu_vpn_r <=  icpu_adr_i[31:`OR1200_IMMU_PS];
 
 `ifdef OR1200_NO_IMMU
 
@@ -337,21 +337,21 @@ assign itlb_spr_access = spr_cs & ~dis_spr_access_scnd_clk;
 // dis_spr_access_frst_clk  sets dis_spr_access_scnd_clk and 
 // icpu_rty_o clears it.
 //
-always @(posedge clk or posedge rst)
-	if (rst)
-		dis_spr_access_frst_clk  <= #1 1'b0;
+always @(posedge clk or `OR1200_RST_EVENT rst)
+	if (rst == `OR1200_RST_VALUE)
+		dis_spr_access_frst_clk  <=  1'b0;
 	else if (!icpu_rty_o)
-		dis_spr_access_frst_clk  <= #1 1'b0;
+		dis_spr_access_frst_clk  <=  1'b0;
 	else if (spr_cs)
-		dis_spr_access_frst_clk  <= #1 1'b1;
+		dis_spr_access_frst_clk  <=  1'b1;
 
-always @(posedge clk or posedge rst)
-	if (rst)
-		dis_spr_access_scnd_clk  <= #1 1'b0;
+always @(posedge clk or `OR1200_RST_EVENT rst)
+	if (rst == `OR1200_RST_VALUE)
+		dis_spr_access_scnd_clk  <=  1'b0;
 	else if (!icpu_rty_o)
-		dis_spr_access_scnd_clk  <= #1 1'b0;
+		dis_spr_access_scnd_clk  <=  1'b0;
 	else if (dis_spr_access_frst_clk)
-		dis_spr_access_scnd_clk  <= #1 1'b1;
+		dis_spr_access_scnd_clk  <=  1'b1;
 
 //
 // Tags:
@@ -377,11 +377,11 @@ assign icpu_err_o = miss | fault | qmemimmu_err_i;
 // Assert itlb_en_r after one clock cycle and when there is no
 // ITLB SPR access
 //
-always @(posedge clk or posedge rst)
-	if (rst)
-		itlb_en_r <= #1 1'b0;
+always @(posedge clk or `OR1200_RST_EVENT rst)
+	if (rst == `OR1200_RST_VALUE)
+		itlb_en_r <=  1'b0;
 	else
-		itlb_en_r <= #1 itlb_en & ~itlb_spr_access;
+		itlb_en_r <=  itlb_en & ~itlb_spr_access;
 
 //
 // ITLB lookup successful
@@ -422,11 +422,11 @@ reg     [31:0]                  spr_dat_reg;
 //
 // spr_dat_o is registered on the 1st clock of spr read 
 // so itlb can continue with process during execution of mfspr.
-always @(posedge clk or posedge rst)
-	if (rst)
-		spr_dat_reg <= #1 32'h0000_0000;
+always @(posedge clk or `OR1200_RST_EVENT rst)
+	if (rst == `OR1200_RST_VALUE)
+		spr_dat_reg <=  32'h0000_0000;
 	else if (spr_cs & !dis_spr_access_scnd_clk)
-		spr_dat_reg <= #1 itlb_dat_o;
+		spr_dat_reg <=  itlb_dat_o;
 
 assign spr_dat_o = itlb_spr_access ? itlb_dat_o : spr_dat_reg; 
 
