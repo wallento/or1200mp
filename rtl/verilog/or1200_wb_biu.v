@@ -48,7 +48,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_wb_biu.v,v $
+// Revision 1.7  2004/04/05 08:29:57  lampret
+// Merged branch_qmem into main tree.
+//
 // Revision 1.6.4.1  2003/07/08 15:36:37  lampret
 // Added embedded memory QMEM.
 //

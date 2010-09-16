@@ -43,7 +43,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_ic_fsm.v,v $
+// Revision 1.10  2004/06/08 18:17:36  lampret
+// Non-functional changes. Coding style fixes.
+//
 // Revision 1.9  2004/04/05 08:29:57  lampret
 // Merged branch_qmem into main tree.
 //
@@ -173,7 +176,7 @@ assign saved_addr = saved_addr_r;
 // Assert for cache miss first word stored/loaded OK
 // Assert for cache miss first word stored/loaded with an error
 //
-assign first_hit_ack = (state == `OR1200_ICFSM_CFETCH) & hitmiss_eval & !tagcomp_miss & !cache_inhibit & !icqmem_ci_i;
+assign first_hit_ack = (state == `OR1200_ICFSM_CFETCH) & hitmiss_eval & !tagcomp_miss & !cache_inhibit;
 assign first_miss_ack = (state == `OR1200_ICFSM_CFETCH) & biudata_valid;
 assign first_miss_err = (state == `OR1200_ICFSM_CFETCH) & biudata_error;
 
@@ -203,7 +206,7 @@ always @(posedge clk or posedge rst) begin
 				saved_addr_r <= #1 start_addr;
 				hitmiss_eval <= #1 1'b1;
 				load <= #1 1'b1;
-				cache_inhibit <= #1 1'b0;
+                cache_inhibit <= #1 icqmem_ci_i;
 			end
 			else begin							// idle
 				hitmiss_eval <= #1 1'b0;

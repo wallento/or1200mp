@@ -43,7 +43,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_top.v,v $
+// Revision 1.13  2004/06/08 18:17:36  lampret
+// Non-functional changes. Coding style fixes.
+//
 // Revision 1.12  2004/04/05 08:29:57  lampret
 // Merged branch_qmem into main tree.
 //
@@ -330,6 +333,11 @@ wire			icbiu_err_biu;
 wire	[3:0]		icbiu_tag_biu;
 
 //
+// SR Interface
+//
+wire 			boot_adr_sel = `OR1200_SR_EPH_DEF;
+
+//
 // CPU's SPR access to various RISC units (shared wires)
 //
 wire			supv;
@@ -454,7 +462,7 @@ wire	[dw-1:0]	du_addr;
 wire	[dw-1:0]	du_dat_du;
 wire			du_read;
 wire			du_write;
-wire	[12:0]		du_except;
+wire	[13:0]		du_except;
 wire	[`OR1200_DU_DSR_WIDTH-1:0]     du_dsr;
 wire	[dw-1:0]	du_dat_cpu;
 wire			du_hwbkpt;
@@ -599,6 +607,9 @@ or1200_immu_top or1200_immu_top(
 	.icpu_rty_o(icpu_rty_immu),
 	.icpu_err_o(icpu_err_immu),
 
+    // SR Interface
+    .boot_adr_sel_i(boot_adr_sel),
+
 	// SPR access
 	.spr_cs(spr_cs[`OR1200_SPR_GROUP_IMMU]),
 	.spr_write(spr_we),
@@ -716,6 +727,9 @@ or1200_cpu or1200_cpu(
 
 	// Connection DMMU and CPU internally
 	.dmmu_en(dmmu_en),
+
+    // SR Interface
+    .boot_adr_sel_i(boot_adr_sel),
 
 	// Connection PIC and CPU's EXCEPT
 	.sig_int(sig_int),

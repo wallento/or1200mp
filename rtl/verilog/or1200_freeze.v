@@ -43,7 +43,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_freeze.v,v $
+// Revision 1.8  2004/06/08 18:17:36  lampret
+// Non-functional changes. Coding style fixes.
+//
 // Revision 1.7  2004/04/05 08:29:57  lampret
 // Merged branch_qmem into main tree.
 //
@@ -114,7 +117,7 @@ module or1200_freeze(
 
 	// Internal i/f
 	multicycle, flushpipe, extend_flush, lsu_stall, if_stall,
-	lsu_unstall, du_stall, mac_stall, 
+	lsu_unstall, du_stall, mac_stall,
 	force_dslot_fetch, abort_ex,
 	genpc_freeze, if_freeze, id_freeze, ex_freeze, wb_freeze,
 	icpu_ack_i, icpu_err_i

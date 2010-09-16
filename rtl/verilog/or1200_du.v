@@ -43,7 +43,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_du.v,v $
+// Revision 1.12  2005/10/19 11:37:56  jcastillo
+// Added support for RAMB16 Xilinx4/Spartan3 primitives
+//
 // Revision 1.11  2005/01/07 09:35:08  andreje
 // du_hwbkpt disabled when debug unit not implemented
 //
@@ -168,7 +171,7 @@ input	[dw-1:0]		du_dat_i;	// Debug Unit Data In
 output	[dw-1:0]		du_dat_o;	// Debug Unit Data Out
 output				du_read;	// Debug Unit Read Enable
 output				du_write;	// Debug Unit Write Enable
-input	[12:0]			du_except;	// Exception masked by DSR
+input	[13:0]			du_except;	// Exception masked by DSR
 output				du_hwbkpt;	// Cause trap exception (HW Breakpoints)
 input				spr_cs;		// SPR Chip Select
 input				spr_write;	// SPR Read/Write
@@ -191,6 +194,8 @@ input	[aw-1:0]	dbg_adr_i;	// External Address Input
 input	[dw-1:0]	dbg_dat_i;	// External Data Input
 output	[dw-1:0]	dbg_dat_o;	// External Data Output
 output			dbg_ack_o;	// External Data Acknowledge (not WB compatible)
+reg		[dw-1:0]	dbg_dat_o;  // External Data Output
+reg					dbg_ack_o;  // External Data Acknowledge (not WB compatible)
 
 
 //
@@ -217,7 +222,6 @@ assign dbg_lss_o = dcpu_cycstb_i ? {dcpu_we_i, 3'b000} : 4'b0000;
 assign dbg_is_o = {1'b0, icpu_cycstb_i};
 `endif
 assign dbg_wp_o = 11'b000_0000_0000;
-assign dbg_dat_o = du_dat_i;
 
 //
 // Some connections go directly from Debug I/F through DU to the CPU
@@ -228,15 +232,26 @@ assign du_dat_o = dbg_dat_i;
 assign du_read = dbg_stb_i && !dbg_we_i;
 assign du_write = dbg_stb_i && dbg_we_i;
 
+reg					dbg_ack;
 //
 // Generate acknowledge -- just delay stb signal
 //
-reg dbg_ack_o;
-always @(posedge clk or posedge rst)
-	if (rst)
+always @(posedge clk or posedge rst) begin
+	if (rst) begin
+		dbg_ack   <= #1 1'b0;
 		dbg_ack_o <= #1 1'b0;
-	else
-		dbg_ack_o <= #1 dbg_stb_i;
+    end
+	else begin
+        dbg_ack   <= #1 dbg_stb_i;
+        dbg_ack_o <= #1 dbg_ack;
+    end
+end
+
+// 
+// Register data output
+//
+always @(posedge clk)
+    dbg_dat_o <= #1 du_dat_i;
 
 `ifdef OR1200_DU_IMPLEMENTED
 
@@ -584,40 +599,43 @@ assign dwcr1_sel = (spr_cs && (spr_addr[`OR1200_DUOFS_BITS] == `OR1200_DU_DWCR1)
 // Decode started exception
 //
 always @(du_except) begin
-	except_stop = 14'b0000_0000_0000;
+   except_stop = 0;   
 	casex (du_except)
-		13'b1_xxxx_xxxx_xxxx:
+		14'b1x_xxxx_xxxx_xxxx:
 			except_stop[`OR1200_DU_DRR_TTE] = 1'b1;
-		13'b0_1xxx_xxxx_xxxx: begin
+		14'b01_xxxx_xxxx_xxxx: begin
 			except_stop[`OR1200_DU_DRR_IE] = 1'b1;
 		end
-		13'b0_01xx_xxxx_xxxx: begin
+		14'b00_1xxx_xxxx_xxxx: begin
 			except_stop[`OR1200_DU_DRR_IME] = 1'b1;
 		end
-		13'b0_001x_xxxx_xxxx:
+		14'b00_01xx_xxxx_xxxx:
 			except_stop[`OR1200_DU_DRR_IPFE] = 1'b1;
-		13'b0_0001_xxxx_xxxx: begin
+		14'b00_001x_xxxx_xxxx: begin
 			except_stop[`OR1200_DU_DRR_BUSEE] = 1'b1;
 		end
-		13'b0_0000_1xxx_xxxx:
+		14'b00_0001_xxxx_xxxx:
 			except_stop[`OR1200_DU_DRR_IIE] = 1'b1;
-		13'b0_0000_01xx_xxxx: begin
+		14'b00_0000_1xxx_xxxx: begin
 			except_stop[`OR1200_DU_DRR_AE] = 1'b1;
 		end
-		13'b0_0000_001x_xxxx: begin
+		14'b00_0000_01xx_xxxx: begin
 			except_stop[`OR1200_DU_DRR_DME] = 1'b1;
 		end
-		13'b0_0000_0001_xxxx:
+		14'b00_0000_001x_xxxx:
 			except_stop[`OR1200_DU_DRR_DPFE] = 1'b1;
-		13'b0_0000_0000_1xxx:
+		14'b00_0000_0001_xxxx:
 			except_stop[`OR1200_DU_DRR_BUSEE] = 1'b1;
-		13'b0_0000_0000_01xx: begin
+		14'b00_0000_0000_1xxx: begin
 			except_stop[`OR1200_DU_DRR_RE] = 1'b1;
 		end
-		13'b0_0000_0000_001x: begin
+		14'b00_0000_0000_01xx: begin
 			except_stop[`OR1200_DU_DRR_TE] = 1'b1;
 		end
-		13'b0_0000_0000_0001:
+		14'b00_0000_0000_001x: begin
+		        except_stop[`OR1200_DU_DRR_FPE] = 1'b1;
+		end	  
+		14'b00_0000_0000_0001:
 			except_stop[`OR1200_DU_DRR_SCE] = 1'b1;
 		default:
 			except_stop = 14'b0000_0000_0000;
@@ -641,7 +659,7 @@ always @(posedge clk or posedge rst)
                         | ~((ex_insn[31:26] == `OR1200_OR32_NOP) & ex_insn[16]) & dmr1[`OR1200_DU_DMR1_ST]
 `endif
 `ifdef OR1200_DU_DMR1_BT
-                        | (branch_op != `OR1200_BRANCHOP_NOP) & dmr1[`OR1200_DU_DMR1_BT]
+                        | (branch_op != `OR1200_BRANCHOP_NOP) & (branch_op != `OR1200_BRANCHOP_RFE) & dmr1[`OR1200_DU_DMR1_BT]
 `endif
 			;
         else
@@ -815,9 +833,9 @@ assign dvr7 = 32'h0000_0000;
 `ifdef OR1200_DU_DCR0
 always @(posedge clk or posedge rst)
 	if (rst)
-		dcr0 <= 8'h00;
+		dcr0 <= 8'h01;
 	else if (dcr0_sel && spr_write)
-		dcr0 <= #1 spr_dat_i[7:0];
+		dcr0[7:1] <= #1 spr_dat_i[7:1];
 `else
 assign dcr0 = 8'h00;
 `endif
@@ -828,9 +846,9 @@ assign dcr0 = 8'h00;
 `ifdef OR1200_DU_DCR1
 always @(posedge clk or posedge rst)
 	if (rst)
-		dcr1 <= 8'h00;
+		dcr1 <= 8'h01;
 	else if (dcr1_sel && spr_write)
-		dcr1 <= #1 spr_dat_i[7:0];
+		dcr1[7:1] <= #1 spr_dat_i[7:1];
 `else
 assign dcr1 = 8'h00;
 `endif
@@ -841,9 +859,9 @@ assign dcr1 = 8'h00;
 `ifdef OR1200_DU_DCR2
 always @(posedge clk or posedge rst)
 	if (rst)
-		dcr2 <= 8'h00;
+		dcr2 <= 8'h01;
 	else if (dcr2_sel && spr_write)
-		dcr2 <= #1 spr_dat_i[7:0];
+		dcr2[7:1] <= #1 spr_dat_i[7:1];
 `else
 assign dcr2 = 8'h00;
 `endif
@@ -854,9 +872,9 @@ assign dcr2 = 8'h00;
 `ifdef OR1200_DU_DCR3
 always @(posedge clk or posedge rst)
 	if (rst)
-		dcr3 <= 8'h00;
+		dcr3 <= 8'h01;
 	else if (dcr3_sel && spr_write)
-		dcr3 <= #1 spr_dat_i[7:0];
+		dcr3[7:1] <= #1 spr_dat_i[7:1];
 `else
 assign dcr3 = 8'h00;
 `endif
@@ -867,9 +885,9 @@ assign dcr3 = 8'h00;
 `ifdef OR1200_DU_DCR4
 always @(posedge clk or posedge rst)
 	if (rst)
-		dcr4 <= 8'h00;
+		dcr4 <= 8'h01;
 	else if (dcr4_sel && spr_write)
-		dcr4 <= #1 spr_dat_i[7:0];
+		dcr4[7:1] <= #1 spr_dat_i[7:1];
 `else
 assign dcr4 = 8'h00;
 `endif
@@ -880,9 +898,9 @@ assign dcr4 = 8'h00;
 `ifdef OR1200_DU_DCR5
 always @(posedge clk or posedge rst)
 	if (rst)
-		dcr5 <= 8'h00;
+		dcr5 <= 8'h01;
 	else if (dcr5_sel && spr_write)
-		dcr5 <= #1 spr_dat_i[7:0];
+		dcr5[7:1] <= #1 spr_dat_i[7:1];
 `else
 assign dcr5 = 8'h00;
 `endif
@@ -893,9 +911,9 @@ assign dcr5 = 8'h00;
 `ifdef OR1200_DU_DCR6
 always @(posedge clk or posedge rst)
 	if (rst)
-		dcr6 <= 8'h00;
+		dcr6 <= 8'h01;
 	else if (dcr6_sel && spr_write)
-		dcr6 <= #1 spr_dat_i[7:0];
+		dcr6[7:1] <= #1 spr_dat_i[7:1];
 `else
 assign dcr6 = 8'h00;
 `endif
@@ -906,9 +924,9 @@ assign dcr6 = 8'h00;
 `ifdef OR1200_DU_DCR7
 always @(posedge clk or posedge rst)
 	if (rst)
-		dcr7 <= 8'h00;
+		dcr7 <= 8'h01;
 	else if (dcr7_sel && spr_write)
-		dcr7 <= #1 spr_dat_i[7:0];
+		dcr7[7:1] <= #1 spr_dat_i[7:1];
 `else
 assign dcr7 = 8'h00;
 `endif
@@ -1089,40 +1107,54 @@ always @(dcr0 or id_pc or dcpu_adr_i or dcpu_dat_dc
 //
 // When To Compare (Match Condition 0)
 //
-always @(dcr0 or dcpu_cycstb_i)
+always @(dcr0 or dcpu_cycstb_i or dcpu_we_i)
 	case (dcr0[`OR1200_DU_DCR_CT]) 		// synopsys parallel_case
 		3'b000:	match_cond0_stb = 1'b0;		//comparison disabled
 		3'b001:	match_cond0_stb = 1'b1;		// insn fetch EA
+  		3'b010:	match_cond0_stb = dcpu_cycstb_i & ~dcpu_we_i;// load
+	        3'b011:	match_cond0_stb = dcpu_cycstb_i & dcpu_we_i;// store
+	        3'b100:	match_cond0_stb = dcpu_cycstb_i & ~dcpu_we_i;// load
+	        3'b101:	match_cond0_stb = dcpu_cycstb_i & dcpu_we_i;// store
 		default:match_cond0_stb = dcpu_cycstb_i; // any load/store
 	endcase
 
-//
-// Match Condition 0
-//
-always @(match_cond0_stb or dcr0 or dvr0 or match_cond0_ct)
-	casex ({match_cond0_stb, dcr0[`OR1200_DU_DCR_CC]})
-		4'b0_xxx,
-		4'b1_000,
-		4'b1_111: match0 = 1'b0;
-		4'b1_001: match0 =
-			((match_cond0_ct[31] ^ dcr0[`OR1200_DU_DCR_SC]) ==
-			(dvr0[31] ^ dcr0[`OR1200_DU_DCR_SC]));
-		4'b1_010: match0 = 
-			((match_cond0_ct[31] ^ dcr0[`OR1200_DU_DCR_SC]) <
-			(dvr0[31] ^ dcr0[`OR1200_DU_DCR_SC]));
-		4'b1_011: match0 = 
-			((match_cond0_ct[31] ^ dcr0[`OR1200_DU_DCR_SC]) <=
-			(dvr0[31] ^ dcr0[`OR1200_DU_DCR_SC]));
-		4'b1_100: match0 = 
-			((match_cond0_ct[31] ^ dcr0[`OR1200_DU_DCR_SC]) >
-			(dvr0[31] ^ dcr0[`OR1200_DU_DCR_SC]));
-		4'b1_101: match0 = 
-			((match_cond0_ct[31] ^ dcr0[`OR1200_DU_DCR_SC]) >=
-			(dvr0[31] ^ dcr0[`OR1200_DU_DCR_SC]));
-		4'b1_110: match0 = 
-			((match_cond0_ct[31] ^ dcr0[`OR1200_DU_DCR_SC]) !=
-			(dvr0[31] ^ dcr0[`OR1200_DU_DCR_SC]));
-	endcase
+// Debugging hwbkpoint match conditions
+   wire match0_dbg1;
+   assign match0_dbg1 = (match_cond0_ct[31] ^ dcr0[`OR1200_DU_DCR_SC]);
+   wire match0_dbg2;
+   assign match0_dbg2 =  (dvr0[31] ^ dcr0[`OR1200_DU_DCR_SC]);
+
+   
+   //
+   // Match Condition 0
+   //
+   always @(match_cond0_stb or dcr0 or dvr0 or match_cond0_ct)
+     casex ({match_cond0_stb, dcr0[`OR1200_DU_DCR_CC]})
+       4'b0_xxx,
+	 4'b1_000,
+	 4'b1_111: match0 = 1'b0;
+       4'b1_001: match0 = ( match_cond0_ct[30:0] == dvr0[30:0] );
+       4'b1_010: match0 = 
+			  ((match_cond0_ct[31] ^ dcr0[`OR1200_DU_DCR_SC]) <
+			   (dvr0[31] ^ dcr0[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond0_ct[30:0] < dvr0[30:0]);
+       4'b1_011: match0 = 
+			  ((match_cond0_ct[31] ^ dcr0[`OR1200_DU_DCR_SC]) <=
+			   (dvr0[31] ^ dcr0[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond0_ct[30:0] <= dvr0[30:0]);
+       4'b1_100: match0 = 
+			  ((match_cond0_ct[31] ^ dcr0[`OR1200_DU_DCR_SC]) >
+			   (dvr0[31] ^ dcr0[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond0_ct[30:0] > dvr0[30:0]);
+       4'b1_101: match0 = 
+			  ((match_cond0_ct[31] ^ dcr0[`OR1200_DU_DCR_SC]) >=
+			   (dvr0[31] ^ dcr0[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond0_ct[30:0] >= dvr0[30:0]);
+       4'b1_110: match0 = 
+			  ((match_cond0_ct[31] ^ dcr0[`OR1200_DU_DCR_SC]) !=
+			   (dvr0[31] ^ dcr0[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond0_ct[30:0] != dvr0[30:0]);
+     endcase
 
 //
 // Watchpoint 0
@@ -1153,40 +1185,47 @@ always @(dcr1 or id_pc or dcpu_adr_i or dcpu_dat_dc
 //
 // When To Compare (Match Condition 1)
 //
-always @(dcr1 or dcpu_cycstb_i)
+always @(dcr1 or dcpu_cycstb_i or dcpu_we_i)
 	case (dcr1[`OR1200_DU_DCR_CT]) 		// synopsys parallel_case
 		3'b000:	match_cond1_stb = 1'b0;		//comparison disabled
 		3'b001:	match_cond1_stb = 1'b1;		// insn fetch EA
-		default:match_cond1_stb = dcpu_cycstb_i; // any load/store
+  		3'b010:	match_cond1_stb = dcpu_cycstb_i & ~dcpu_we_i;// load
+	        3'b011:	match_cond1_stb = dcpu_cycstb_i & dcpu_we_i;// store
+	        3'b100:	match_cond1_stb = dcpu_cycstb_i & ~dcpu_we_i;// load
+	        3'b101:	match_cond1_stb = dcpu_cycstb_i & dcpu_we_i;// store
+	  	default:match_cond1_stb = dcpu_cycstb_i; // any load/store
 	endcase
 
-//
-// Match Condition 1
-//
-always @(match_cond1_stb or dcr1 or dvr1 or match_cond1_ct)
-	casex ({match_cond1_stb, dcr1[`OR1200_DU_DCR_CC]})
-		4'b0_xxx,
-		4'b1_000,
-		4'b1_111: match1 = 1'b0;
-		4'b1_001: match1 =
-			((match_cond1_ct[31] ^ dcr1[`OR1200_DU_DCR_SC]) ==
-			(dvr1[31] ^ dcr1[`OR1200_DU_DCR_SC]));
-		4'b1_010: match1 = 
-			((match_cond1_ct[31] ^ dcr1[`OR1200_DU_DCR_SC]) <
-			(dvr1[31] ^ dcr1[`OR1200_DU_DCR_SC]));
-		4'b1_011: match1 = 
-			((match_cond1_ct[31] ^ dcr1[`OR1200_DU_DCR_SC]) <=
-			(dvr1[31] ^ dcr1[`OR1200_DU_DCR_SC]));
-		4'b1_100: match1 = 
-			((match_cond1_ct[31] ^ dcr1[`OR1200_DU_DCR_SC]) >
-			(dvr1[31] ^ dcr1[`OR1200_DU_DCR_SC]));
-		4'b1_101: match1 = 
-			((match_cond1_ct[31] ^ dcr1[`OR1200_DU_DCR_SC]) >=
-			(dvr1[31] ^ dcr1[`OR1200_DU_DCR_SC]));
-		4'b1_110: match1 = 
-			((match_cond1_ct[31] ^ dcr1[`OR1200_DU_DCR_SC]) !=
-			(dvr1[31] ^ dcr1[`OR1200_DU_DCR_SC]));
-	endcase
+   //
+   // Match Condition 1
+   //
+   always @(match_cond1_stb or dcr1 or dvr1 or match_cond1_ct)
+     casex ({match_cond1_stb, dcr1[`OR1200_DU_DCR_CC]})
+       4'b0_xxx,
+	 4'b1_000,
+	 4'b1_111: match1 = 1'b0;
+       4'b1_001: match1 = ( match_cond1_ct[30:0] == dvr1[30:0] );
+       4'b1_010: match1 = 
+			  ((match_cond1_ct[31] ^ dcr1[`OR1200_DU_DCR_SC]) <
+			   (dvr1[31] ^ dcr1[`OR1200_DU_DCR_SC]))&&
+			  ( match_cond1_ct[30:0] < dvr1[30:0]);
+       4'b1_011: match1 = 
+			  ((match_cond1_ct[31] ^ dcr1[`OR1200_DU_DCR_SC]) <=
+			   (dvr1[31] ^ dcr1[`OR1200_DU_DCR_SC]))&&
+			  ( match_cond1_ct[30:0] <= dvr1[30:0]);
+       4'b1_100: match1 = 
+			  ((match_cond1_ct[31] ^ dcr1[`OR1200_DU_DCR_SC]) >
+			   (dvr1[31] ^ dcr1[`OR1200_DU_DCR_SC]))&&
+			  ( match_cond1_ct[30:0] > dvr1[30:0]);
+       4'b1_101: match1 = 
+			  ((match_cond1_ct[31] ^ dcr1[`OR1200_DU_DCR_SC]) >=
+			   (dvr1[31] ^ dcr1[`OR1200_DU_DCR_SC]))&&
+			  ( match_cond1_ct[30:0] >= dvr1[30:0]);
+       4'b1_110: match1 = 
+			  ((match_cond1_ct[31] ^ dcr1[`OR1200_DU_DCR_SC]) !=
+			   (dvr1[31] ^ dcr1[`OR1200_DU_DCR_SC]))&&
+			  ( match_cond1_ct[30:0] != dvr1[30:0]);
+     endcase   
 
 //
 // Watchpoint 1
@@ -1217,40 +1256,49 @@ always @(dcr2 or id_pc or dcpu_adr_i or dcpu_dat_dc
 //
 // When To Compare (Match Condition 2)
 //
-always @(dcr2 or dcpu_cycstb_i)
+always @(dcr2 or dcpu_cycstb_i or dcpu_we_i)
 	case (dcr2[`OR1200_DU_DCR_CT]) 		// synopsys parallel_case
 		3'b000:	match_cond2_stb = 1'b0;		//comparison disabled
 		3'b001:	match_cond2_stb = 1'b1;		// insn fetch EA
+    		3'b010:	match_cond2_stb = dcpu_cycstb_i & ~dcpu_we_i;// load
+	        3'b011:	match_cond2_stb = dcpu_cycstb_i & dcpu_we_i;// store
+	        3'b100:	match_cond2_stb = dcpu_cycstb_i & ~dcpu_we_i;// load
+	        3'b101:	match_cond2_stb = dcpu_cycstb_i & dcpu_we_i;// store
+
 		default:match_cond2_stb = dcpu_cycstb_i; // any load/store
 	endcase
 
-//
-// Match Condition 2
-//
-always @(match_cond2_stb or dcr2 or dvr2 or match_cond2_ct)
-	casex ({match_cond2_stb, dcr2[`OR1200_DU_DCR_CC]})
-		4'b0_xxx,
-		4'b1_000,
-		4'b1_111: match2 = 1'b0;
-		4'b1_001: match2 =
-			((match_cond2_ct[31] ^ dcr2[`OR1200_DU_DCR_SC]) ==
-			(dvr2[31] ^ dcr2[`OR1200_DU_DCR_SC]));
-		4'b1_010: match2 = 
-			((match_cond2_ct[31] ^ dcr2[`OR1200_DU_DCR_SC]) <
-			(dvr2[31] ^ dcr2[`OR1200_DU_DCR_SC]));
-		4'b1_011: match2 = 
-			((match_cond2_ct[31] ^ dcr2[`OR1200_DU_DCR_SC]) <=
-			(dvr2[31] ^ dcr2[`OR1200_DU_DCR_SC]));
-		4'b1_100: match2 = 
-			((match_cond2_ct[31] ^ dcr2[`OR1200_DU_DCR_SC]) >
-			(dvr2[31] ^ dcr2[`OR1200_DU_DCR_SC]));
-		4'b1_101: match2 = 
-			((match_cond2_ct[31] ^ dcr2[`OR1200_DU_DCR_SC]) >=
-			(dvr2[31] ^ dcr2[`OR1200_DU_DCR_SC]));
-		4'b1_110: match2 = 
-			((match_cond2_ct[31] ^ dcr2[`OR1200_DU_DCR_SC]) !=
-			(dvr2[31] ^ dcr2[`OR1200_DU_DCR_SC]));
-	endcase
+
+   //
+   // Match Condition 2
+   //
+   always @(match_cond2_stb or dcr2 or dvr2 or match_cond2_ct)
+     casex ({match_cond2_stb, dcr2[`OR1200_DU_DCR_CC]})
+       4'b0_xxx,
+	 4'b1_000,
+	 4'b1_111: match2 = 1'b0;
+       4'b1_001: match2 = ( match_cond2_ct[30:0] == dvr2[30:0] );
+       4'b1_010: match2 = 
+			  ((match_cond2_ct[31] ^ dcr2[`OR1200_DU_DCR_SC]) <
+			   (dvr2[31] ^ dcr2[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond2_ct[30:0] < dvr2[30:0]);
+       4'b1_011: match2 = 
+			  ((match_cond2_ct[31] ^ dcr2[`OR1200_DU_DCR_SC]) <=
+			   (dvr2[31] ^ dcr2[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond2_ct[30:0] <= dvr2[30:0]);
+       4'b1_100: match2 = 
+			  ((match_cond2_ct[31] ^ dcr2[`OR1200_DU_DCR_SC]) >
+			   (dvr2[31] ^ dcr2[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond2_ct[30:0] > dvr2[30:0]);
+       4'b1_101: match2 = 
+			  ((match_cond2_ct[31] ^ dcr2[`OR1200_DU_DCR_SC]) >=
+			   (dvr2[31] ^ dcr2[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond2_ct[30:0] >= dvr2[30:0]);
+       4'b1_110: match2 = 
+			  ((match_cond2_ct[31] ^ dcr2[`OR1200_DU_DCR_SC]) !=
+			   (dvr2[31] ^ dcr2[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond2_ct[30:0] != dvr2[30:0]);
+     endcase
 
 //
 // Watchpoint 2
@@ -1281,40 +1329,49 @@ always @(dcr3 or id_pc or dcpu_adr_i or dcpu_dat_dc
 //
 // When To Compare (Match Condition 3)
 //
-always @(dcr3 or dcpu_cycstb_i)
+always @(dcr3 or dcpu_cycstb_i or dcpu_we_i)
 	case (dcr3[`OR1200_DU_DCR_CT]) 		// synopsys parallel_case
 		3'b000:	match_cond3_stb = 1'b0;		//comparison disabled
 		3'b001:	match_cond3_stb = 1'b1;		// insn fetch EA
+      		3'b010:	match_cond3_stb = dcpu_cycstb_i & ~dcpu_we_i;// load
+	        3'b011:	match_cond3_stb = dcpu_cycstb_i & dcpu_we_i;// store
+	        3'b100:	match_cond3_stb = dcpu_cycstb_i & ~dcpu_we_i;// load
+	        3'b101:	match_cond3_stb = dcpu_cycstb_i & dcpu_we_i;// store
+
 		default:match_cond3_stb = dcpu_cycstb_i; // any load/store
 	endcase
 
-//
-// Match Condition 3
-//
-always @(match_cond3_stb or dcr3 or dvr3 or match_cond3_ct)
-	casex ({match_cond3_stb, dcr3[`OR1200_DU_DCR_CC]})
-		4'b0_xxx,
-		4'b1_000,
-		4'b1_111: match3 = 1'b0;
-		4'b1_001: match3 =
-			((match_cond3_ct[31] ^ dcr3[`OR1200_DU_DCR_SC]) ==
-			(dvr3[31] ^ dcr3[`OR1200_DU_DCR_SC]));
-		4'b1_010: match3 = 
-			((match_cond3_ct[31] ^ dcr3[`OR1200_DU_DCR_SC]) <
-			(dvr3[31] ^ dcr3[`OR1200_DU_DCR_SC]));
-		4'b1_011: match3 = 
-			((match_cond3_ct[31] ^ dcr3[`OR1200_DU_DCR_SC]) <=
-			(dvr3[31] ^ dcr3[`OR1200_DU_DCR_SC]));
-		4'b1_100: match3 = 
-			((match_cond3_ct[31] ^ dcr3[`OR1200_DU_DCR_SC]) >
-			(dvr3[31] ^ dcr3[`OR1200_DU_DCR_SC]));
-		4'b1_101: match3 = 
-			((match_cond3_ct[31] ^ dcr3[`OR1200_DU_DCR_SC]) >=
-			(dvr3[31] ^ dcr3[`OR1200_DU_DCR_SC]));
-		4'b1_110: match3 = 
-			((match_cond3_ct[31] ^ dcr3[`OR1200_DU_DCR_SC]) !=
-			(dvr3[31] ^ dcr3[`OR1200_DU_DCR_SC]));
-	endcase
+      
+   //
+   // Match Condition 3
+   //
+   always @(match_cond3_stb or dcr3 or dvr3 or match_cond3_ct)
+     casex ({match_cond3_stb, dcr3[`OR1200_DU_DCR_CC]})
+       4'b0_xxx,
+	 4'b1_000,
+	 4'b1_111: match3 = 1'b0;
+       4'b1_001: match3 = ( match_cond3_ct[30:0] == dvr3[30:0] );
+       4'b1_010: match3 = 
+			  ((match_cond3_ct[31] ^ dcr3[`OR1200_DU_DCR_SC]) <
+			   (dvr3[31] ^ dcr3[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond3_ct[30:0] < dvr3[30:0]);
+       4'b1_011: match3 = 
+			  ((match_cond3_ct[31] ^ dcr3[`OR1200_DU_DCR_SC]) <=
+			   (dvr3[31] ^ dcr3[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond3_ct[30:0] <= dvr3[30:0]);
+       4'b1_100: match3 = 
+			  ((match_cond3_ct[31] ^ dcr3[`OR1200_DU_DCR_SC]) >
+			   (dvr3[31] ^ dcr3[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond3_ct[30:0] > dvr3[30:0]);
+       4'b1_101: match3 = 
+			  ((match_cond3_ct[31] ^ dcr3[`OR1200_DU_DCR_SC]) >=
+			   (dvr3[31] ^ dcr3[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond3_ct[30:0] >= dvr3[30:0]);
+       4'b1_110: match3 = 
+			  ((match_cond3_ct[31] ^ dcr3[`OR1200_DU_DCR_SC]) !=
+			   (dvr3[31] ^ dcr3[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond3_ct[30:0] != dvr3[30:0]);
+     endcase
 
 //
 // Watchpoint 3
@@ -1345,40 +1402,50 @@ always @(dcr4 or id_pc or dcpu_adr_i or dcpu_dat_dc
 //
 // When To Compare (Match Condition 4)
 //
-always @(dcr4 or dcpu_cycstb_i)
+always @(dcr4 or dcpu_cycstb_i or dcpu_we_i)
 	case (dcr4[`OR1200_DU_DCR_CT]) 		// synopsys parallel_case
 		3'b000:	match_cond4_stb = 1'b0;		//comparison disabled
 		3'b001:	match_cond4_stb = 1'b1;		// insn fetch EA
+       		3'b010:	match_cond4_stb = dcpu_cycstb_i & ~dcpu_we_i;// load
+	        3'b011:	match_cond4_stb = dcpu_cycstb_i & dcpu_we_i;// store
+	        3'b100:	match_cond4_stb = dcpu_cycstb_i & ~dcpu_we_i;// load
+	        3'b101:	match_cond4_stb = dcpu_cycstb_i & dcpu_we_i;// store
+
 		default:match_cond4_stb = dcpu_cycstb_i; // any load/store
 	endcase
 
-//
-// Match Condition 4
-//
-always @(match_cond4_stb or dcr4 or dvr4 or match_cond4_ct)
-	casex ({match_cond4_stb, dcr4[`OR1200_DU_DCR_CC]})
-		4'b0_xxx,
-		4'b1_000,
-		4'b1_111: match4 = 1'b0;
-		4'b1_001: match4 =
-			((match_cond4_ct[31] ^ dcr4[`OR1200_DU_DCR_SC]) ==
-			(dvr4[31] ^ dcr4[`OR1200_DU_DCR_SC]));
-		4'b1_010: match4 = 
-			((match_cond4_ct[31] ^ dcr4[`OR1200_DU_DCR_SC]) <
-			(dvr4[31] ^ dcr4[`OR1200_DU_DCR_SC]));
-		4'b1_011: match4 = 
-			((match_cond4_ct[31] ^ dcr4[`OR1200_DU_DCR_SC]) <=
-			(dvr4[31] ^ dcr4[`OR1200_DU_DCR_SC]));
-		4'b1_100: match4 = 
-			((match_cond4_ct[31] ^ dcr4[`OR1200_DU_DCR_SC]) >
-			(dvr4[31] ^ dcr4[`OR1200_DU_DCR_SC]));
-		4'b1_101: match4 = 
-			((match_cond4_ct[31] ^ dcr4[`OR1200_DU_DCR_SC]) >=
-			(dvr4[31] ^ dcr4[`OR1200_DU_DCR_SC]));
-		4'b1_110: match4 = 
-			((match_cond4_ct[31] ^ dcr4[`OR1200_DU_DCR_SC]) !=
-			(dvr4[31] ^ dcr4[`OR1200_DU_DCR_SC]));
-	endcase
+
+    //
+   // Match Condition 4
+   //
+   always @(match_cond4_stb or dcr4 or dvr4 or match_cond4_ct)
+     casex ({match_cond4_stb, dcr4[`OR1200_DU_DCR_CC]})
+       4'b0_xxx,
+	 4'b1_000,
+	 4'b1_111: match4 = 1'b0;
+       4'b1_001: match4 = ( match_cond4_ct[30:0] == dvr4[30:0] );
+       4'b1_010: match4 = 
+			  ((match_cond4_ct[31] ^ dcr4[`OR1200_DU_DCR_SC]) <
+			   (dvr4[31] ^ dcr4[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond4_ct[30:0] < dvr4[30:0]);
+       4'b1_011: match4 = 
+			  ((match_cond4_ct[31] ^ dcr4[`OR1200_DU_DCR_SC]) <=
+			   (dvr4[31] ^ dcr4[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond4_ct[30:0] <= dvr4[30:0]);
+       4'b1_100: match4 = 
+			  ((match_cond4_ct[31] ^ dcr4[`OR1200_DU_DCR_SC]) >
+			   (dvr4[31] ^ dcr4[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond4_ct[30:0] > dvr4[30:0]);
+       4'b1_101: match4 = 
+			  ((match_cond4_ct[31] ^ dcr4[`OR1200_DU_DCR_SC]) >=
+			   (dvr4[31] ^ dcr4[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond4_ct[30:0] >= dvr4[30:0]);
+       4'b1_110: match4 = 
+			  ((match_cond4_ct[31] ^ dcr4[`OR1200_DU_DCR_SC]) !=
+			   (dvr4[31] ^ dcr4[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond4_ct[30:0] != dvr4[30:0]);
+     endcase
+
 
 //
 // Watchpoint 4
@@ -1409,40 +1476,49 @@ always @(dcr5 or id_pc or dcpu_adr_i or dcpu_dat_dc
 //
 // When To Compare (Match Condition 5)
 //
-always @(dcr5 or dcpu_cycstb_i)
+always @(dcr5 or dcpu_cycstb_i or dcpu_we_i)
 	case (dcr5[`OR1200_DU_DCR_CT]) 		// synopsys parallel_case
 		3'b000:	match_cond5_stb = 1'b0;		//comparison disabled
 		3'b001:	match_cond5_stb = 1'b1;		// insn fetch EA
+     		3'b010:	match_cond5_stb = dcpu_cycstb_i & ~dcpu_we_i;// load
+	        3'b011:	match_cond5_stb = dcpu_cycstb_i & dcpu_we_i;// store
+	        3'b100:	match_cond5_stb = dcpu_cycstb_i & ~dcpu_we_i;// load
+	        3'b101:	match_cond5_stb = dcpu_cycstb_i & dcpu_we_i;// store
+
 		default:match_cond5_stb = dcpu_cycstb_i; // any load/store
 	endcase
 
-//
-// Match Condition 5
-//
-always @(match_cond5_stb or dcr5 or dvr5 or match_cond5_ct)
-	casex ({match_cond5_stb, dcr5[`OR1200_DU_DCR_CC]})
-		4'b0_xxx,
-		4'b1_000,
-		4'b1_111: match5 = 1'b0;
-		4'b1_001: match5 =
-			((match_cond5_ct[31] ^ dcr5[`OR1200_DU_DCR_SC]) ==
-			(dvr5[31] ^ dcr5[`OR1200_DU_DCR_SC]));
-		4'b1_010: match5 = 
-			((match_cond5_ct[31] ^ dcr5[`OR1200_DU_DCR_SC]) <
-			(dvr5[31] ^ dcr5[`OR1200_DU_DCR_SC]));
-		4'b1_011: match5 = 
-			((match_cond5_ct[31] ^ dcr5[`OR1200_DU_DCR_SC]) <=
-			(dvr5[31] ^ dcr5[`OR1200_DU_DCR_SC]));
-		4'b1_100: match5 = 
-			((match_cond5_ct[31] ^ dcr5[`OR1200_DU_DCR_SC]) >
-			(dvr5[31] ^ dcr5[`OR1200_DU_DCR_SC]));
-		4'b1_101: match5 = 
-			((match_cond5_ct[31] ^ dcr5[`OR1200_DU_DCR_SC]) >=
-			(dvr5[31] ^ dcr5[`OR1200_DU_DCR_SC]));
-		4'b1_110: match5 = 
-			((match_cond5_ct[31] ^ dcr5[`OR1200_DU_DCR_SC]) !=
-			(dvr5[31] ^ dcr5[`OR1200_DU_DCR_SC]));
-	endcase
+      
+   //
+   // Match Condition 5
+   //
+   always @(match_cond5_stb or dcr5 or dvr5 or match_cond5_ct)
+     casex ({match_cond5_stb, dcr5[`OR1200_DU_DCR_CC]})
+       4'b0_xxx,
+	 4'b1_000,
+	 4'b1_111: match5 = 1'b0;
+       4'b1_001: match5 = ( match_cond5_ct[30:0] == dvr5[30:0] );
+       4'b1_010: match5 = 
+			  ((match_cond5_ct[31] ^ dcr5[`OR1200_DU_DCR_SC]) <
+			   (dvr5[31] ^ dcr5[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond5_ct[30:0] < dvr5[30:0]);
+       4'b1_011: match5 = 
+			  ((match_cond5_ct[31] ^ dcr5[`OR1200_DU_DCR_SC]) <=
+			   (dvr5[31] ^ dcr5[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond5_ct[30:0] <= dvr5[30:0]);
+       4'b1_100: match5 = 
+			  ((match_cond5_ct[31] ^ dcr5[`OR1200_DU_DCR_SC]) >
+			   (dvr5[31] ^ dcr5[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond5_ct[30:0] > dvr5[30:0]);
+       4'b1_101: match5 = 
+			  ((match_cond5_ct[31] ^ dcr5[`OR1200_DU_DCR_SC]) >=
+			   (dvr5[31] ^ dcr5[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond5_ct[30:0] >= dvr5[30:0]);
+       4'b1_110: match5 = 
+			  ((match_cond5_ct[31] ^ dcr5[`OR1200_DU_DCR_SC]) !=
+			   (dvr5[31] ^ dcr5[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond5_ct[30:0] != dvr5[30:0]);
+     endcase
 
 //
 // Watchpoint 5
@@ -1473,40 +1549,50 @@ always @(dcr6 or id_pc or dcpu_adr_i or dcpu_dat_dc
 //
 // When To Compare (Match Condition 6)
 //
-always @(dcr6 or dcpu_cycstb_i)
+always @(dcr6 or dcpu_cycstb_i or dcpu_we_i)
 	case (dcr6[`OR1200_DU_DCR_CT]) 		// synopsys parallel_case
 		3'b000:	match_cond6_stb = 1'b0;		//comparison disabled
 		3'b001:	match_cond6_stb = 1'b1;		// insn fetch EA
+       		3'b010:	match_cond6_stb = dcpu_cycstb_i & ~dcpu_we_i;// load
+	        3'b011:	match_cond6_stb = dcpu_cycstb_i & dcpu_we_i;// store
+	        3'b100:	match_cond6_stb = dcpu_cycstb_i & ~dcpu_we_i;// load
+	        3'b101:	match_cond6_stb = dcpu_cycstb_i & dcpu_we_i;// store
+
 		default:match_cond6_stb = dcpu_cycstb_i; // any load/store
 	endcase
 
-//
-// Match Condition 6
-//
-always @(match_cond6_stb or dcr6 or dvr6 or match_cond6_ct)
-	casex ({match_cond6_stb, dcr6[`OR1200_DU_DCR_CC]})
-		4'b0_xxx,
-		4'b1_000,
-		4'b1_111: match6 = 1'b0;
-		4'b1_001: match6 =
-			((match_cond6_ct[31] ^ dcr6[`OR1200_DU_DCR_SC]) ==
-			(dvr6[31] ^ dcr6[`OR1200_DU_DCR_SC]));
-		4'b1_010: match6 = 
-			((match_cond6_ct[31] ^ dcr6[`OR1200_DU_DCR_SC]) <
-			(dvr6[31] ^ dcr6[`OR1200_DU_DCR_SC]));
-		4'b1_011: match6 = 
-			((match_cond6_ct[31] ^ dcr6[`OR1200_DU_DCR_SC]) <=
-			(dvr6[31] ^ dcr6[`OR1200_DU_DCR_SC]));
-		4'b1_100: match6 = 
-			((match_cond6_ct[31] ^ dcr6[`OR1200_DU_DCR_SC]) >
-			(dvr6[31] ^ dcr6[`OR1200_DU_DCR_SC]));
-		4'b1_101: match6 = 
-			((match_cond6_ct[31] ^ dcr6[`OR1200_DU_DCR_SC]) >=
-			(dvr6[31] ^ dcr6[`OR1200_DU_DCR_SC]));
-		4'b1_110: match6 = 
-			((match_cond6_ct[31] ^ dcr6[`OR1200_DU_DCR_SC]) !=
-			(dvr6[31] ^ dcr6[`OR1200_DU_DCR_SC]));
-	endcase
+      
+   //
+   // Match Condition 6
+   //
+   always @(match_cond6_stb or dcr6 or dvr6 or match_cond6_ct)
+     casex ({match_cond6_stb, dcr6[`OR1200_DU_DCR_CC]})
+       4'b0_xxx,
+	 4'b1_000,
+	 4'b1_111: match6 = 1'b0;
+       4'b1_001: match6 = ( match_cond6_ct[30:0] == dvr6[30:0] );
+       4'b1_010: match6 = 
+			  ((match_cond6_ct[31] ^ dcr6[`OR1200_DU_DCR_SC]) <
+			   (dvr6[31] ^ dcr6[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond6_ct[30:0] < dvr6[30:0]);
+       4'b1_011: match6 = 
+			  ((match_cond6_ct[31] ^ dcr6[`OR1200_DU_DCR_SC]) <=
+			   (dvr6[31] ^ dcr6[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond6_ct[30:0] <= dvr6[30:0]);
+       4'b1_100: match6 = 
+			  ((match_cond6_ct[31] ^ dcr6[`OR1200_DU_DCR_SC]) >
+			   (dvr6[31] ^ dcr6[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond6_ct[30:0] > dvr6[30:0]);
+       4'b1_101: match6 = 
+			  ((match_cond6_ct[31] ^ dcr6[`OR1200_DU_DCR_SC]) >=
+			   (dvr6[31] ^ dcr6[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond6_ct[30:0] >= dvr6[30:0]);
+       4'b1_110: match6 = 
+			  ((match_cond6_ct[31] ^ dcr6[`OR1200_DU_DCR_SC]) !=
+			   (dvr6[31] ^ dcr6[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond6_ct[30:0] != dvr6[30:0]);
+     endcase
+
 
 //
 // Watchpoint 6
@@ -1537,40 +1623,48 @@ always @(dcr7 or id_pc or dcpu_adr_i or dcpu_dat_dc
 //
 // When To Compare (Match Condition 7)
 //
-always @(dcr7 or dcpu_cycstb_i)
+always @(dcr7 or dcpu_cycstb_i or dcpu_we_i)
 	case (dcr7[`OR1200_DU_DCR_CT]) 		// synopsys parallel_case
 		3'b000:	match_cond7_stb = 1'b0;		//comparison disabled
 		3'b001:	match_cond7_stb = 1'b1;		// insn fetch EA
+       		3'b010:	match_cond7_stb = dcpu_cycstb_i & ~dcpu_we_i;// load
+	        3'b011:	match_cond7_stb = dcpu_cycstb_i & dcpu_we_i;// store
+	        3'b100:	match_cond7_stb = dcpu_cycstb_i & ~dcpu_we_i;// load
+	        3'b101:	match_cond7_stb = dcpu_cycstb_i & dcpu_we_i;// store
+
 		default:match_cond7_stb = dcpu_cycstb_i; // any load/store
 	endcase
-
-//
-// Match Condition 7
-//
-always @(match_cond7_stb or dcr7 or dvr7 or match_cond7_ct)
-	casex ({match_cond7_stb, dcr7[`OR1200_DU_DCR_CC]})
-		4'b0_xxx,
-		4'b1_000,
-		4'b1_111: match7 = 1'b0;
-		4'b1_001: match7 =
-			((match_cond7_ct[31] ^ dcr7[`OR1200_DU_DCR_SC]) ==
-			(dvr7[31] ^ dcr7[`OR1200_DU_DCR_SC]));
-		4'b1_010: match7 = 
-			((match_cond7_ct[31] ^ dcr7[`OR1200_DU_DCR_SC]) <
-			(dvr7[31] ^ dcr7[`OR1200_DU_DCR_SC]));
-		4'b1_011: match7 = 
-			((match_cond7_ct[31] ^ dcr7[`OR1200_DU_DCR_SC]) <=
-			(dvr7[31] ^ dcr7[`OR1200_DU_DCR_SC]));
-		4'b1_100: match7 = 
-			((match_cond7_ct[31] ^ dcr7[`OR1200_DU_DCR_SC]) >
-			(dvr7[31] ^ dcr7[`OR1200_DU_DCR_SC]));
-		4'b1_101: match7 = 
-			((match_cond7_ct[31] ^ dcr7[`OR1200_DU_DCR_SC]) >=
-			(dvr7[31] ^ dcr7[`OR1200_DU_DCR_SC]));
-		4'b1_110: match7 = 
-			((match_cond7_ct[31] ^ dcr7[`OR1200_DU_DCR_SC]) !=
-			(dvr7[31] ^ dcr7[`OR1200_DU_DCR_SC]));
-	endcase
+   
+   //
+   // Match Condition 7
+   //
+   always @(match_cond7_stb or dcr7 or dvr7 or match_cond7_ct)
+     casex ({match_cond7_stb, dcr7[`OR1200_DU_DCR_CC]})
+       4'b0_xxx,
+	 4'b1_000,
+	 4'b1_111: match7 = 1'b0;
+       4'b1_001: match7 = ( match_cond7_ct[30:0] == dvr7[30:0] );
+       4'b1_010: match7 = 
+			  ((match_cond7_ct[31] ^ dcr7[`OR1200_DU_DCR_SC]) <
+			   (dvr7[31] ^ dcr7[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond7_ct[30:0] < dvr7[30:0]);
+       4'b1_011: match7 = 
+			  ((match_cond7_ct[31] ^ dcr7[`OR1200_DU_DCR_SC]) <=
+			   (dvr7[31] ^ dcr7[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond7_ct[30:0] <= dvr7[30:0]);
+       4'b1_100: match7 = 
+			  ((match_cond7_ct[31] ^ dcr7[`OR1200_DU_DCR_SC]) >
+			   (dvr7[31] ^ dcr7[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond7_ct[30:0] > dvr7[30:0]);
+       4'b1_101: match7 = 
+			  ((match_cond7_ct[31] ^ dcr7[`OR1200_DU_DCR_SC]) >=
+			   (dvr7[31] ^ dcr7[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond7_ct[30:0] >= dvr7[30:0]);
+       4'b1_110: match7 = 
+			  ((match_cond7_ct[31] ^ dcr7[`OR1200_DU_DCR_SC]) !=
+			   (dvr7[31] ^ dcr7[`OR1200_DU_DCR_SC]))&&
+			   ( match_cond7_ct[30:0] != dvr7[30:0]);
+     endcase
 
 //
 // Watchpoint 7

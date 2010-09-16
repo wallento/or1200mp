@@ -43,7 +43,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_alu.v,v $
+// Revision 1.15  2005/01/07 09:23:39  andreje
+// l.ff1 and l.cmov instructions added
+//
 // Revision 1.14  2004/06/08 18:17:36  lampret
 // Non-functional changes. Coding style fixes.
 //
@@ -180,7 +183,7 @@ assign a_lt_b = (comp_a < comp_b);
 `endif
 assign {cy_sum, result_sum} = a + b;
 `ifdef OR1200_IMPL_ADDC
-assign {cy_csum, result_csum} = a + b + {32'd0, carry};
+assign {cy_csum, result_csum} = a + b + {`OR1200_OPERAND_WIDTH'd0, carry};
 `endif
 assign result_and = a & b;
 
@@ -199,7 +202,11 @@ end
 //
 // Central part of the ALU
 //
-always @(alu_op or a or b or result_sum or result_and or macrc_op or shifted_rotated or mult_mac_result) begin
+always @(alu_op or a or b or result_sum or result_and or macrc_op or shifted_rotated or mult_mac_result or flag or result_cust5 or carry
+`ifdef OR1200_IMPL_ADDC
+         or result_csum
+`endif
+) begin
 `ifdef OR1200_CASE_DEFAULT
 	casex (alu_op)		// synopsys parallel_case
 `else
@@ -297,7 +304,11 @@ end
 //
 // Generate flag and flag write enable
 //
-always @(alu_op or result_sum or result_and or flagcomp) begin
+always @(alu_op or result_sum or result_and or flagcomp
+`ifdef OR1200_IMPL_ADDC
+         or result_csum
+`endif
+) begin
 	casex (alu_op)		// synopsys parallel_case
 `ifdef OR1200_ADDITIONAL_FLAG_MODIFIERS
 		`OR1200_ALUOP_ADD : begin
@@ -331,9 +342,9 @@ end
 //
 always @(alu_op or cy_sum
 `ifdef OR1200_IMPL_ADDC
-	or cy_csum
+         or cy_csum
 `endif
-	) begin
+) begin
 	casex (alu_op)		// synopsys parallel_case
 `ifdef OR1200_IMPL_CY
 		`OR1200_ALUOP_ADD : begin

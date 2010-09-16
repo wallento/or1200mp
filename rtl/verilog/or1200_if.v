@@ -43,7 +43,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_if.v,v $
+// Revision 1.5  2004/04/05 08:29:57  lampret
+// Merged branch_qmem into main tree.
+//
 // Revision 1.3  2002/03/29 15:16:56  lampret
 // Some of the warnings fixed.
 //
@@ -138,14 +141,14 @@ reg				saved;
 //
 // IF stage insn
 //
-assign if_insn = icpu_err_i | no_more_dslot | rfe ? {`OR1200_OR32_NOP, 26'h041_0000} : saved ? insn_saved : icpu_ack_i ? icpu_dat_i : {`OR1200_OR32_NOP, 26'h061_0000};
+assign if_insn = no_more_dslot | rfe ? {`OR1200_OR32_NOP, 26'h041_0000} : saved ? insn_saved : icpu_err_i ? {`OR1200_OR32_NOP, 26'h041_0000} : icpu_ack_i ? icpu_dat_i : {`OR1200_OR32_NOP, 26'h061_0000};
 assign if_pc = saved ? addr_saved : icpu_adr_i;
 // assign if_stall = !icpu_err_i & !icpu_ack_i & !saved & !no_more_dslot;
 assign if_stall = !icpu_err_i & !icpu_ack_i & !saved;
 assign genpc_refetch = saved & icpu_ack_i;
-assign except_itlbmiss = icpu_err_i & (icpu_tag_i == `OR1200_ITAG_TE) & !no_more_dslot;
-assign except_immufault = icpu_err_i & (icpu_tag_i == `OR1200_ITAG_PE) & !no_more_dslot;
-assign except_ibuserr = icpu_err_i & (icpu_tag_i == `OR1200_ITAG_BE) & !no_more_dslot;
+assign except_itlbmiss = saved | no_more_dslot ? 1'b0 : icpu_err_i & (icpu_tag_i == `OR1200_ITAG_TE);
+assign except_immufault = saved | no_more_dslot ? 1'b0 : icpu_err_i & (icpu_tag_i == `OR1200_ITAG_PE);
+assign except_ibuserr = saved | no_more_dslot ? 1'b0 : icpu_err_i & (icpu_tag_i == `OR1200_ITAG_BE);
 
 //
 // Flag for saved insn/address

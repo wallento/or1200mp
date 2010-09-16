@@ -86,8 +86,19 @@ module or1200_dpram
    //
    // Generic RAM's registers and wires
    //
-   reg [dw-1:0] 		mem [(1<<aw)-1:0];	// RAM content
+   reg [dw-1:0] 		mem [(1<<aw)-1:0] /* verilator public */;	// RAM content
    reg [aw-1:0] 		addr_a_reg;		// RAM address registered
+
+
+   // Function to access GPRs (for use by Verilator). No need to hide this one
+   // from the simulator, since it has an input (as required by IEEE 1364-2001).
+   function [31:0] get_gpr;
+      // verilator public
+      input [aw-1:0] 		gpr_no;
+
+      get_gpr = mem[gpr_no];
+      
+   endfunction // get_gpr
    
    //
    // Data output drivers
@@ -107,7 +118,7 @@ module or1200_dpram
    // RAM write
    //
    always @(posedge clk_b)
-     if (ce_b && we_b)
+     if (ce_b & we_b)
        mem[addr_b] <= #1 di_b;
    
 endmodule // or1200_dpram

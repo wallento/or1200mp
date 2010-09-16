@@ -63,7 +63,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_spram_1024x32.v,v $
+// Revision 1.9  2005/10/19 11:37:56  jcastillo
+// Added support for RAMB16 Xilinx4/Spartan3 primitives
+//
 // Revision 1.8  2004/06/08 18:15:32  lampret
 // Changed behavior of the simulation generic models
 //
@@ -116,7 +119,7 @@ module or1200_spram_1024x32(
 	mbist_si_i, mbist_so_o, mbist_ctrl_i,
 `endif
 	// Generic synchronous single-port RAM interface
-	clk, rst, ce, we, oe, addr, di, doq
+	clk, ce, we, oe, addr, di, doq
 );
 
 //
@@ -138,7 +141,7 @@ output mbist_so_o;
 // Generic synchronous single-port RAM interface
 //
 input			clk;	// Clock
-input			rst;	// Reset
+//input			rst;	// Reset
 input			ce;	// Chip enable input
 input			we;	// Write enable input
 input			oe;	// Output enable input
@@ -494,9 +497,9 @@ defparam lpm_ram_dq_component.lpm_width = dw,
 //
 // Generic RAM's registers and wires
 //
-reg	[dw-1:0]	mem [(1<<aw)-1:0];	// RAM content
+reg	[dw-1:0]	mem [(1<<aw)-1:0] /*synthesis syn_ramstyle = "no_rw_check"*/;
 reg	[aw-1:0]	addr_reg;		// RAM address register
-
+			   
 //
 // Data output drivers
 //
@@ -505,17 +508,16 @@ assign doq = (oe) ? mem[addr_reg] : {dw{1'b0}};
 //
 // RAM address register
 //
-always @(posedge clk or posedge rst)
-	if (rst)
-		addr_reg <= #1 {aw{1'b0}};
-	else if (ce)
+always @(posedge clk)
+ if (ce)
 		addr_reg <= #1 addr;
 
 //
 // RAM write
 //
+			    
 always @(posedge clk)
-	if (ce && we)
+	if (we && ce)
 		mem[addr] <= #1 di;
 
 `endif	// !OR1200_ALTERA_LPM

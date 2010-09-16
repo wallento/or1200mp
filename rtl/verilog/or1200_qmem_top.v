@@ -46,7 +46,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_qmem_top.v,v $
+// Revision 1.3  2004/06/08 18:17:36  lampret
+// Non-functional changes. Coding style fixes.
+//
 // Revision 1.2  2004/04/05 08:40:26  lampret
 // Merged branch_qmem into main tree.
 //

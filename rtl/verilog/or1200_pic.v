@@ -43,7 +43,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_pic.v,v $
+// Revision 1.4  2004/06/08 18:17:36  lampret
+// Non-functional changes. Coding style fixes.
+//
 // Revision 1.3  2002/03/29 15:16:56  lampret
 // Some of the warnings fixed.
 //

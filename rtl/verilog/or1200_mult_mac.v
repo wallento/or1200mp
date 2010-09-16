@@ -44,7 +44,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_mult_mac.v,v $
+// Revision 1.5  2006/04/09 01:32:29  lampret
+// See OR1200_MAC_SHIFTBY in or1200_defines.v for explanation of the change. Since now no more 28 bits shift for l.macrc insns however for backward compatbility it is possible to set arbitry number of shifts.
+//
 // Revision 1.4  2004/06/08 18:17:36  lampret
 // Non-functional changes. Coding style fixes.
 //
@@ -322,7 +325,7 @@ always @(posedge rst or posedge clk)
 	if (rst)
 		mac_stall_r <= #1 1'b0;
 	else
-		mac_stall_r <= #1 (|mac_op | (|mac_op_r1) | (|mac_op_r2)) & id_macrc_op
+		mac_stall_r <= #1 (|mac_op | (|mac_op_r1) | (|mac_op_r2)) & (id_macrc_op | mac_stall_r)
 `ifdef OR1200_IMPL_DIV
 				| (|div_cntr)
 `endif

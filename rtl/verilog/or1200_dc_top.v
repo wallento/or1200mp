@@ -43,7 +43,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_dc_top.v,v $
+// Revision 1.8  2004/04/05 08:29:57  lampret
+// Merged branch_qmem into main tree.
+//
 // Revision 1.6.4.2  2003/12/09 11:46:48  simons
 // Mbist nameing changed, Artisan ram instance signal names fixed, some synthesis waning fixed.
 //
@@ -238,7 +241,7 @@ assign dcsb_cyc_o = (dc_en) ? dcfsm_biu_read | dcfsm_biu_write : dcqmem_cycstb_i
 assign dcsb_stb_o = (dc_en) ? dcfsm_biu_read | dcfsm_biu_write : dcqmem_cycstb_i;
 assign dcsb_we_o = (dc_en) ? dcfsm_biu_write : dcqmem_we_i;
 assign dcsb_sel_o = (dc_en & dcfsm_biu_read & !dcfsm_biu_write & !dcqmem_ci_i) ? 4'b1111 : dcqmem_sel_i;
-assign dcsb_cab_o = (dc_en) ? dcfsm_burst : 1'b0;
+assign dcsb_cab_o = (dc_en) ? dcsb_cyc_o & dcfsm_burst : 1'b0;
 assign dcqmem_rty_o = ~dcqmem_ack_o;
 assign dcqmem_tag_o = dcqmem_err_o ? `OR1200_DTAG_BE : dcqmem_tag_i;
 

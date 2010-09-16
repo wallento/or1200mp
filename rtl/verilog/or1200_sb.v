@@ -43,7 +43,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_sb.v,v $
+// Revision 1.2  2002/08/22 02:18:55  lampret
+// Store buffer has been tested and it works. BY default it is still disabled until uClinux confirms correct operation on FPGA board.
+//
 // Revision 1.1  2002/08/18 19:53:08  lampret
 // Added store buffer.
 //

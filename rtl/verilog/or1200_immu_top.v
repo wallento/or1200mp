@@ -43,7 +43,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_immu_top.v,v $
+// Revision 1.15  2004/06/08 18:17:36  lampret
+// Non-functional changes. Coding style fixes.
+//
 // Revision 1.14  2004/04/05 08:29:57  lampret
 // Merged branch_qmem into main tree.
 //
@@ -126,6 +129,9 @@ module or1200_immu_top(
 	ic_en, immu_en, supv, icpu_adr_i, icpu_cycstb_i,
 	icpu_adr_o, icpu_tag_o, icpu_rty_o, icpu_err_o,
 
+    // SR Interface
+    boot_adr_sel_i,
+
 	// SPR access
 	spr_cs, spr_write, spr_addr, spr_dat_i, spr_dat_o,
 
@@ -163,6 +169,11 @@ output	[aw-1:0]		icpu_adr_o;
 output	[3:0]			icpu_tag_o;
 output				icpu_rty_o;
 output				icpu_err_o;
+
+//
+// SR Interface
+//
+input				boot_adr_sel_i;
 
 //
 // SPR access
@@ -207,12 +218,16 @@ wire				itlb_done;
 wire				fault;
 wire				miss;
 wire				page_cross;
-reg	[31:0]			icpu_adr_o;
+reg		[31:0]		icpu_adr_default;
+wire	[31:0]		icpu_adr_boot;
+reg					icpu_adr_select;
+reg		[31:0]		icpu_adr_o;
 reg	[31:`OR1200_IMMU_PS]	icpu_vpn_r;
 `ifdef OR1200_NO_IMMU
 `else
 reg				itlb_en_r;
-reg				dis_spr_access;
+reg				dis_spr_access_frst_clk;
+reg				dis_spr_access_scnd_clk;
 `endif
 
 //
@@ -233,10 +248,25 @@ reg				dis_spr_access;
 //
 `ifdef OR1200_REGISTERED_OUTPUTS
 always @(posedge rst or posedge clk)
-	if (rst)
-		icpu_adr_o <= #1 32'h0000_0100;
-	else
-		icpu_adr_o <= #1 icpu_adr_i;
+	if (rst) begin
+		icpu_adr_default <= #1 32'h0000_0100;
+        icpu_adr_select  <= #1 1'b1;
+    end
+	else if (icpu_adr_select) begin
+		icpu_adr_default <= #1 icpu_adr_boot;
+        icpu_adr_select  <= #1 1'b0;
+    end
+    else begin
+        icpu_adr_default <= #1 icpu_adr_i;
+    end
+
+assign icpu_adr_boot = {(boot_adr_sel_i ? `OR1200_EXCEPT_EPH1_P : `OR1200_EXCEPT_EPH0_P), 12'h100} ;
+
+always @(icpu_adr_boot or icpu_adr_default or icpu_adr_select)
+    if (icpu_adr_select)
+        icpu_adr_o = icpu_adr_boot ;
+    else
+        icpu_adr_o = icpu_adr_default ;
 `else
 Unsupported !!!
 `endif
@@ -284,26 +314,36 @@ assign mbist_so_o = mbist_si_i;
 // 1300 - 13FF  itlbtr w0
 // 1300 - 133F  itlbtr w0 [63:0]
 //
-assign itlb_spr_access = spr_cs & ~dis_spr_access;
+assign itlb_spr_access = spr_cs & ~dis_spr_access_scnd_clk;
 
 //
 // Disable ITLB SPR access
 //
-// This flop is used to mask ITLB miss/fault exception
-// during first clock cycle of accessing ITLB SPR. In
+// This flops are used to mask ITLB miss/fault exception
+// during first & second clock cycles of accessing ITLB SPR. In
 // subsequent clock cycles it is assumed that ITLB SPR
 // access was accomplished and that normal instruction fetching
 // can proceed.
 //
-// spr_cs sets dis_spr_access and icpu_rty_o clears it.
+// spr_cs sets dis_spr_access_frst_clk and icpu_rty_o clears it.
+// dis_spr_access_frst_clk  sets dis_spr_access_scnd_clk and 
+// icpu_rty_o clears it.
 //
 always @(posedge clk or posedge rst)
 	if (rst)
-		dis_spr_access <= #1 1'b0;
+		dis_spr_access_frst_clk  <= #1 1'b0;
 	else if (!icpu_rty_o)
-		dis_spr_access <= #1 1'b0;
+		dis_spr_access_frst_clk  <= #1 1'b0;
 	else if (spr_cs)
-		dis_spr_access <= #1 1'b1;
+		dis_spr_access_frst_clk  <= #1 1'b1;
+
+always @(posedge clk or posedge rst)
+	if (rst)
+		dis_spr_access_scnd_clk  <= #1 1'b0;
+	else if (!icpu_rty_o)
+		dis_spr_access_scnd_clk  <= #1 1'b0;
+	else if (dis_spr_access_frst_clk)
+		dis_spr_access_scnd_clk  <= #1 1'b1;
 
 //
 // Tags:
@@ -363,10 +403,17 @@ assign qmemimmu_ci_o = `OR1200_IMMU_CI;
 //
 assign qmemimmu_adr_o = itlb_done ? {itlb_ppn, icpu_adr_i[`OR1200_IMMU_PS-1:0]} : {icpu_vpn_r, icpu_adr_i[`OR1200_IMMU_PS-1:0]}; // DL: immu_en
 
+reg     [31:0]                  spr_dat_o;
 //
 // Output to SPRS unit
 //
-assign spr_dat_o = spr_cs ? itlb_dat_o : 32'h00000000;
+//always @(posedge clk `OR1200_RST_EVENT)
+//    if (rst == `OR1200_RST_ACT)
+   always @ (posedge clk or posedge rst)
+     if (rst)
+        spr_dat_o <= #1 32'h0000_0000;
+    else if (spr_cs & !dis_spr_access_scnd_clk)
+        spr_dat_o <= #1 itlb_dat_o;
 
 //
 // Page fault exception logic

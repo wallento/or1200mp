@@ -63,7 +63,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_spram_256x21.v,v $
+// Revision 1.9  2005/10/19 11:37:56  jcastillo
+// Added support for RAMB16 Xilinx4/Spartan3 primitives
+//
 // Revision 1.8  2004/06/08 18:15:32  lampret
 // Changed behavior of the simulation generic models
 //

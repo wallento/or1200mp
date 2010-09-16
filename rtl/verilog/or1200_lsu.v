@@ -43,7 +43,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_lsu.v,v $
+// Revision 1.5  2004/04/05 08:29:57  lampret
+// Merged branch_qmem into main tree.
+//
 // Revision 1.4  2002/03/29 15:16:56  lampret
 // Some of the warnings fixed.
 //

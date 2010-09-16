@@ -43,7 +43,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_genpc.v,v $
+// Revision 1.10  2004/06/08 18:17:36  lampret
+// Non-functional changes. Coding style fixes.
+//
 // Revision 1.9  2004/04/05 08:29:57  lampret
 // Merged branch_qmem into main tree.
 //
@@ -114,7 +117,7 @@ module or1200_genpc(
 	icpu_rty_i, icpu_adr_i,
 
 	// Internal i/f
-	branch_op, except_type, except_prefix,
+	pre_branch_op, branch_op, except_type, except_prefix,
 	branch_addrofs, lr_restor, flag, taken, except_start,
 	binsn_addr, epcr, spr_dat_i, spr_pc_we, genpc_refetch,
 	genpc_freeze, genpc_stop_prefetch, no_more_dslot
@@ -143,6 +146,7 @@ input	[31:0]			icpu_adr_i;
 //
 // Internal i/f
 //
+input   [`OR1200_BRANCHOP_WIDTH-1:0]    pre_branch_op;
 input	[`OR1200_BRANCHOP_WIDTH-1:0]	branch_op;
 input	[`OR1200_EXCEPT_WIDTH-1:0]	except_type;
 input					except_prefix;
@@ -163,6 +167,9 @@ input				no_more_dslot;
 //
 // Internal wires and regs
 //
+reg     [31:2]      pcreg_default;
+wire    [31:0]      pcreg_boot;
+reg                 pcreg_select;
 reg	[31:2]			pcreg;
 reg	[31:0]			pc;
 reg				taken;	/* Set to in case of jump or taken branch */
@@ -178,7 +185,7 @@ assign icpu_adr_o = !no_more_dslot & !except_start & !spr_pc_we & (icpu_rty_i | 
 // Control access to IC subsystem
 //
 // assign icpu_cycstb_o = !genpc_freeze & !no_more_dslot;
-assign icpu_cycstb_o = !genpc_freeze; // works, except remaining raised cycstb during long load/store
+assign icpu_cycstb_o = ~(genpc_freeze | (|pre_branch_op && !icpu_rty_i));
 //assign icpu_cycstb_o = !(genpc_freeze | genpc_refetch & genpc_refetch_r);
 //assign icpu_cycstb_o = !(genpc_freeze | genpc_stop_prefetch);
 assign icpu_sel_o = 4'b1111;
@@ -303,14 +310,29 @@ end
 //
 // PC register
 //
+//
 always @(posedge clk or posedge rst)
-	if (rst)
-//		pcreg <= #1 30'd63;
-		pcreg <= #1 ({(except_prefix ? `OR1200_EXCEPT_EPH1_P : `OR1200_EXCEPT_EPH0_P), `OR1200_EXCEPT_RESET, `OR1200_EXCEPT_V} - 1) >> 2;
-	else if (spr_pc_we)
-		pcreg <= #1 spr_dat_i[31:2];
-	else if (no_more_dslot | except_start | !genpc_freeze & !icpu_rty_i & !genpc_refetch)
-//	else if (except_start | !genpc_freeze & !icpu_rty_i & !genpc_refetch)
-		pcreg <= #1 pc[31:2];
+	if (rst) begin
+		pcreg_default <= #1 30'd63;
+        pcreg_select <= #1 1'b1;
+    end
+    else if (pcreg_select) begin
+        pcreg_default <= #1 pcreg_boot[31:2];
+        pcreg_select <= #1 1'b0;
+    end
+	else if (spr_pc_we) begin
+		pcreg_default <= #1 spr_dat_i[31:2];
+    end
+	else if (no_more_dslot | except_start | !genpc_freeze & !icpu_rty_i & !genpc_refetch) begin
+		pcreg_default <= #1 pc[31:2];
+    end
+
+assign  pcreg_boot = {(except_prefix ? `OR1200_EXCEPT_EPH1_P : `OR1200_EXCEPT_EPH0_P), `OR1200_EXCEPT_RESET, `OR1200_EXCEPT_V} - 1;
+
+always @(pcreg_boot or pcreg_default or pcreg_select)
+    if (pcreg_select)
+      pcreg = pcreg_boot[31:2];
+    else
+        pcreg = pcreg_default ;
 
 endmodule

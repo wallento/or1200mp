@@ -43,7 +43,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_rf.v,v $
+// Revision 1.3  2003/04/07 01:21:56  lampret
+// RFRAM type always need to be defined.
+//
 // Revision 1.2  2002/06/08 16:19:09  lampret
 // Added generic flip-flop based memory macro instantiation.
 //
@@ -92,7 +95,7 @@ module or1200_rf(
 	clk, rst,
 
 	// Write i/f
-	supv, wb_freeze, addrw, dataw, we, flushpipe,
+	cy_we_i, cy_we_o, supv, wb_freeze, addrw, dataw, we, flushpipe,
 
 	// Read i/f
 	id_freeze, addra, addrb, dataa, datab, rda, rdb,
@@ -117,6 +120,8 @@ input				rst;
 //
 // Write i/f
 //
+input				cy_we_i;
+output				cy_we_o;
 input				supv;
 input				wb_freeze;
 input	[aw-1:0]		addrw;
@@ -206,6 +211,7 @@ always @(posedge rst or posedge clk)
 		rf_we_allow <= #1 ~flushpipe;
 
 assign rf_we = ((spr_valid & spr_write) | (we & ~wb_freeze)) & rf_we_allow & (supv | (|rf_addrw));
+assign cy_we_o = cy_we_i && rf_we ;
 
 //
 // CS RF A asserted when instruction reads operand A and ID stage
@@ -308,45 +314,51 @@ or1200_tpram_32x32 rf_b(
 //
 // Instantiation of register file two-port RAM A
 //
-or1200_dpram_32x32 rf_a(
-	// Port A
-	.clk_a(clk),
-	.rst_a(rst),
-	.ce_a(rf_ena),
-	.oe_a(1'b1),
-	.addr_a(rf_addra),
-	.do_a(from_rfa),
+   or1200_dpram #
+     (
+      .aw(5),
+      .dw(32)
+      )
+   rf_a
+     (
+      // Port A
+      .clk_a(clk),
+      .ce_a(rf_ena),
+      .addr_a(rf_addra),
+      .do_a(from_rfa),
+      
+      // Port B
+      .clk_b(clk),
+      .ce_b(rf_we),
+      .we_b(rf_we),
+      .addr_b(rf_addrw),
+      .di_b(rf_dataw)
+      );
 
-	// Port B
-	.clk_b(clk),
-	.rst_b(rst),
-	.ce_b(rf_we),
-	.we_b(rf_we),
-	.addr_b(rf_addrw),
-	.di_b(rf_dataw)
-);
-
-//
-// Instantiation of register file two-port RAM B
-//
-or1200_dpram_32x32 rf_b(
-	// Port A
-	.clk_a(clk),
-	.rst_a(rst),
-	.ce_a(rf_enb),
-	.oe_a(1'b1),
-	.addr_a(addrb),
-	.do_a(from_rfb),
-
-	// Port B
-	.clk_b(clk),
-	.rst_b(rst),
-	.ce_b(rf_we),
-	.we_b(rf_we),
-	.addr_b(rf_addrw),
-	.di_b(rf_dataw)
-);
-
+   //
+   // Instantiation of register file two-port RAM B
+   //
+   or1200_dpram #
+     (
+      .aw(5),
+      .dw(32)
+      )
+   rf_b
+     (
+      // Port A
+      .clk_a(clk),
+      .ce_a(rf_enb),
+      .addr_a(addrb),
+      .do_a(from_rfb),
+      
+      // Port B
+      .clk_b(clk),
+      .ce_b(rf_we),
+      .we_b(rf_we),
+      .addr_b(rf_addrw),
+      .di_b(rf_dataw)
+      );
+   
 `else
 
 `ifdef OR1200_RFRAM_GENERIC

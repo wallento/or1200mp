@@ -48,7 +48,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_iwb_biu.v,v $
+// Revision 1.2  2004/04/05 08:29:57  lampret
+// Merged branch_qmem into main tree.
+//
 // Revision 1.1  2003/12/05 00:12:08  lampret
 // New wb_biu for iwb interface.
 //
@@ -428,7 +431,7 @@ always @(posedge wb_clk_i or posedge wb_rst_i)
 	if (wb_rst_i)
 		wb_stb_o <= #1 1'b0;
 	else
-		wb_stb_o <= #1 (biu_cyc_i & biu_stb_i) & ~wb_ack_i & ~retry & ~repeated_access | aborted & ~wb_ack_i;
+       wb_stb_o <= #1 (biu_cyc_i & biu_stb_i) & ~wb_ack_i & ~retry & ~repeated_access & ~repeated_access_ack | aborted & ~wb_ack_i;
 `else
 assign wb_stb_o = biu_cyc_i & biu_stb_i;
 `endif

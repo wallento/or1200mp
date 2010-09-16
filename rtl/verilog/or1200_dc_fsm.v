@@ -43,7 +43,10 @@
 //
 // CVS Revision History
 //
-// $Log: not supported by cvs2svn $
+// $Log: or1200_dc_fsm.v,v $
+// Revision 1.9  2004/06/08 18:17:36  lampret
+// Non-functional changes. Coding style fixes.
+//
 // Revision 1.8  2004/04/05 08:29:57  lampret
 // Merged branch_qmem into main tree.
 //
@@ -156,6 +159,7 @@ reg				hitmiss_eval;
 reg				store;
 reg				load;
 reg				cache_inhibit;
+wire                tagcomp_miss_wide;
 wire				first_store_hit_ack;
 
 //
@@ -179,8 +183,9 @@ assign saved_addr = saved_addr_r;
 // Assert for cache miss first word stored/loaded OK
 // Assert for cache miss first word stored/loaded with an error
 //
-assign first_hit_ack = (state == `OR1200_DCFSM_CLOAD) & !tagcomp_miss & !cache_inhibit & !dcqmem_ci_i | first_store_hit_ack;
-assign first_store_hit_ack = (state == `OR1200_DCFSM_CSTORE) & !tagcomp_miss & biudata_valid & !cache_inhibit & !dcqmem_ci_i;
+assign tagcomp_miss_wide = tagcomp_miss | (saved_addr != start_addr);
+assign first_hit_ack = (state == `OR1200_DCFSM_CLOAD) & !tagcomp_miss_wide & !cache_inhibit | first_store_hit_ack;
+assign first_store_hit_ack = (state == `OR1200_DCFSM_CSTORE) & !tagcomp_miss_wide & biudata_valid & !cache_inhibit;
 assign first_miss_ack = ((state == `OR1200_DCFSM_CLOAD) | (state == `OR1200_DCFSM_CSTORE)) & biudata_valid;
 assign first_miss_err = ((state == `OR1200_DCFSM_CLOAD) | (state == `OR1200_DCFSM_CSTORE)) & biudata_error;
 
@@ -216,7 +221,7 @@ always @(posedge clk or posedge rst) begin
 				hitmiss_eval <= #1 1'b1;
 				store <= #1 1'b1;
 				load <= #1 1'b0;
-				cache_inhibit <= #1 1'b0;
+                cache_inhibit <= #1 dcqmem_ci_i;
 			end
 			else if (dc_en & dcqmem_cycstb_i) begin		// load
 				state <= #1 `OR1200_DCFSM_CLOAD;
@@ -224,7 +229,7 @@ always @(posedge clk or posedge rst) begin
 				hitmiss_eval <= #1 1'b1;
 				store <= #1 1'b0;
 				load <= #1 1'b1;
-				cache_inhibit <= #1 1'b0;
+                cache_inhibit <= #1 dcqmem_ci_i;
 			end
 			else begin							// idle
 				hitmiss_eval <= #1 1'b0;
@@ -252,7 +257,7 @@ always @(posedge clk or posedge rst) begin
 				cnt <= #1 `OR1200_DCLS-2;
 				cache_inhibit <= #1 1'b0;
 			end
-			else if (!tagcomp_miss & !dcqmem_ci_i) begin	// load hit, finish immediately
+			else if (!tagcomp_miss_wide & !dcqmem_ci_i) begin	// load hit, finish immediately
 				state <= #1 `OR1200_DCFSM_IDLE;
 				hitmiss_eval <= #1 1'b0;
 				load <= #1 1'b0;
