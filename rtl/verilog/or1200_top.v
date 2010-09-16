@@ -180,11 +180,25 @@ module or1200_top(
 	pm_clksd_o, pm_dc_gate_o, pm_ic_gate_o, pm_dmmu_gate_o, 
 	pm_immu_gate_o, pm_tt_gate_o, pm_cpu_gate_o, pm_wakeup_o, pm_lvolt_o
 
+`ifdef OR1200_MP
+`ifdef OR1200_MP_COREID_AS_PORT
+	, coreid_i // Add the core identifier as an external port, so that
+		   // it can be changed/configured externally
+`endif // OR1200_MP_COREID_AS_PORT
+`endif // OR1200_MP
 );
 
 parameter dw = `OR1200_OPERAND_WIDTH;
 parameter aw = `OR1200_OPERAND_WIDTH;
 parameter ppic_ints = `OR1200_PIC_INTS;
+
+// Multiprocessor core identifier as parameter
+`ifdef OR1200_MP
+`ifndef OR1200_MP_COREID_AS_PORT
+parameter coreid = 0;
+`endif // !OR1200_MP_COREID_AS_PORT
+`endif // OR1200_MP
+
 
 //
 // I/O
@@ -283,11 +297,25 @@ output			pm_cpu_gate_o;
 output			pm_wakeup_o;
 output			pm_lvolt_o;
 
+// Multiprocessor version
+`ifdef OR1200_MP
+`ifdef OR1200_MP_COREID_AS_PORT
+input  [31:0]  coreid_i;
+`endif // OR1200_MP_COREID_AS_PORT
+`endif // OR1200_MP
 
 //
 // Internal wires and regs
 //
 
+`ifdef OR1200_MP
+wire [31:0] spr_dat_coreid /* verilator public */;
+`ifdef OR1200_MP_COREID_AS_PORT
+assign spr_dat_coreid = coreid_i;
+`else // id is parameter
+assign spr_dat_coreid = coreid;
+`endif // OR1200_MP_COREID_AS_PORT
+`endif // OR1200_MP
 //
 // DC to SB
 //
@@ -1053,5 +1081,14 @@ or1200_pm or1200_pm(
 	.pm_lvolt(pm_lvolt_o)
 );
 
+`ifdef verilator
+   // Function to set core id (for Verilator).
+
+   function set_coreid;
+      // verilator public
+      input [31:0] id;
+      spr_dat_coreid = id;
+   endfunction // set_coreid
+`endif
 
 endmodule

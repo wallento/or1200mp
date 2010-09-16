@@ -182,6 +182,9 @@ module or1200_cpu(
 	// SPR interface
 	supv, spr_addr, spr_dat_cpu, spr_dat_pic, spr_dat_tt, spr_dat_pm,
 	spr_dat_dmmu, spr_dat_immu, spr_dat_du, spr_cs, spr_we
+`ifdef OR1200_MP
+	, spr_dat_coreid
+`endif // OR1200_MP
 );
 
 parameter dw = `OR1200_OPERAND_WIDTH;
@@ -277,6 +280,10 @@ output	[dw-1:0]		spr_dat_cpu;
 output	[dw-1:0]		spr_dat_npc;
 output	[31:0]			spr_cs;
 output				spr_we;
+
+`ifdef OR1200_MP
+input [31:0] spr_dat_coreid;  // Multiprocessor core identifier
+`endif // OR1200_MP
 
 //
 // Interrupt exceptions
@@ -717,6 +724,9 @@ or1200_sprs or1200_sprs(
 	.spr_dat_immu(spr_dat_immu),
 	.spr_dat_du(spr_dat_du),
 	.spr_dat_o(spr_dat_cpu),
+`ifdef OR1200_MP
+	.spr_dat_coreid(spr_dat_coreid),
+`endif // OR1200_MP
 	.spr_cs(spr_cs),
 	.spr_we(spr_we),
 

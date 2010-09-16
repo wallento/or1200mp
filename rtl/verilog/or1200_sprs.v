@@ -122,6 +122,9 @@ module or1200_sprs(
 		to_wbmux, epcr_we, eear_we, esr_we, pc_we, sr_we, to_sr, sr,
 		spr_dat_cfgr, spr_dat_rf, spr_dat_npc, spr_dat_ppc, spr_dat_mac,
         boot_adr_sel_i,
+`ifdef OR1200_MP
+	spr_dat_coreid,
+`endif
 
 		// From/to other RISC units
 		spr_dat_pic, spr_dat_tt, spr_dat_pm,
@@ -178,6 +181,9 @@ input	[31:0]			spr_dat_npc;	// Data from NPC
 input	[31:0]			spr_dat_ppc;	// Data from PPC   
 input	[31:0]			spr_dat_mac;	// Data from MAC
 input					boot_adr_sel_i;
+`ifdef OR1200_MP
+input [31:0]      spr_dat_coreid; // The Core identifier register data
+`endif
 `ifdef OR1200_FPU_IMPLEMENTED
 input 	[`OR1200_FPCSR_WIDTH-1:0]       fpcsr;	// FPCSR
 output 				fpcsr_we;	// Write enable FPCSR   
@@ -229,6 +235,9 @@ wire 				sr_sel;		// Select for SR
 wire 				epcr_sel;	// Select for EPCR0
 wire 				eear_sel;	// Select for EEAR0
 wire 				esr_sel;	// Select for ESR0
+`ifdef OR1200_MP
+wire         coreid_sel;
+`endif // OR1200_MP
 `ifdef OR1200_FPU_IMPLEMENTED   
 wire 				fpcsr_sel;	// Select for FPCSR
 `endif   
@@ -357,6 +366,9 @@ assign sr_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR
 assign epcr_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR_EPCR));
 assign eear_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR_EEAR));
 assign esr_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR_ESR));
+`ifdef OR1200_MP
+assign coreid_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR_COREID));
+`endif // OR1200_MP
 `ifdef OR1200_FPU_IMPLEMENTED
 assign fpcsr_sel = (spr_cs[`OR1200_SPR_GROUP_SYS] && (spr_addr[10:0] == `OR1200_SPR_FPCSR));
 `endif
@@ -383,7 +395,10 @@ assign sys_data = (spr_dat_cfgr & {32{read_spr & cfgr_sel}}) |
 		  (spr_dat_ppc & {32{read_spr & ppc_sel}}) |
 		  ({{32-`OR1200_SR_WIDTH{1'b0}},sr} & {32{read_spr & sr_sel}}) |
 		  (epcr & {32{read_spr & epcr_sel}}) |
-		  (eear & {32{read_spr & eear_sel}}) |		  
+		  (eear & {32{read_spr & eear_sel}}) |	
+`ifdef OR1200_MP
+	  	(spr_dat_coreid & {32{coreid_sel}}) |
+`endif // OR1200_MP
 `ifdef OR1200_FPU_IMPLEMENTED
 		  ({{32-`OR1200_FPCSR_WIDTH{1'b0}},fpcsr} & {32{read_spr & fpcsr_sel}}) |
 `endif		  
