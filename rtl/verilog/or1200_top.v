@@ -186,6 +186,11 @@ module or1200_top(
 		   // it can be changed/configured externally
 `endif // OR1200_MP_COREID_AS_PORT
 `endif // OR1200_MP
+`ifdef OR1200_DC_INVALID_COHERENCE
+        ,snooped_adr_i, snooped_we_i, snooped_ack_i
+`elsif OR1200_DC_UPDATE_COHERENCE
+        ,snooped_adr_i, snooped_we_i, snooped_ack_i, snooped_dat_i, snooped_sel_i
+`endif
 );
 
 parameter dw = `OR1200_OPERAND_WIDTH;
@@ -303,6 +308,19 @@ output			pm_lvolt_o;
 input  [31:0]  coreid_i;
 `endif // OR1200_MP_COREID_AS_PORT
 `endif // OR1200_MP
+
+`ifdef OR1200_DC_INVALID_COHERENCE
+input	[31:0]			snooped_adr_i;
+input	      			snooped_ack_i;
+input				snooped_we_i;
+`elsif OR1200_DC_UPDATE_COHERENCE
+input	[31:0]			snooped_adr_i;
+input	      			snooped_ack_i;
+input				snooped_we_i;
+input	[dw-1:0]		snooped_dat_i;
+input	[3:0]			snooped_sel_i;
+`endif
+
 
 //
 // Internal wires and regs
@@ -461,7 +479,9 @@ wire	[31:0]		dcqmem_dat_dc;
 wire	[31:0]		dcqmem_dat_qmem;
 wire			dcqmem_we_qmem;
 wire	[3:0]		dcqmem_sel_qmem;
+/* verilator lint_off UNOPTFLAT */
 wire			dcqmem_ack_dc;
+/* verilator lint_on UNOPTFLAT */
 
 //
 // Connection between CPU and PIC
@@ -863,6 +883,18 @@ or1200_dc_top or1200_dc_top(
 	.dcsb_dat_i(dcsb_dat_sb),
 	.dcsb_ack_i(dcsb_ack_sb),
 	.dcsb_err_i(dcsb_err_sb)
+	
+`ifdef OR1200_DC_INVALID_COHERENCE
+	,.snooped_adr_i(snooped_adr_i),
+	.snooped_ack_i(snooped_ack_i),
+	.snooped_we_i(snooped_we_i)
+`elsif OR1200_DC_UPDATE_COHERENCE
+	,.snooped_adr_i(snooped_adr_i),
+	.snooped_ack_i(snooped_ack_i),
+	.snooped_we_i(snooped_we_i),
+	.snooped_dat_i(snooped_dat_i),
+	.snooped_sel_i(snooped_sel_i)
+`endif
 );
 
 //

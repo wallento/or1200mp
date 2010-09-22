@@ -13,10 +13,11 @@
 ////                                                              ////
 ////  Author(s):                                                  ////
 ////      - Damjan Lampret, lampret@opencores.org                 ////
+////      - Liang Chen, liang.chen@mytum.de                       ////
 ////                                                              ////
 //////////////////////////////////////////////////////////////////////
 ////                                                              ////
-//// Copyright (C) 2000 Authors and OPENCORES.ORG                 ////
+//// Copyright (C) 2000-2010 Authors and OPENCORES.ORG            ////
 ////                                                              ////
 //// This source file may be used and distributed without         ////
 //// restriction provided that this copyright statement is not    ////
@@ -41,12 +42,13 @@
 ////                                                              ////
 //////////////////////////////////////////////////////////////////////
 //
+// Changelog:
+//		2010/09/16	Liang Chen
+//			Added coherency support
+// 
 // CVS Revision History
 //
-// $Log: or1200_dc_top.v,v $
-// Revision 1.8  2004/04/05 08:29:57  lampret
-// Merged branch_qmem into main tree.
-//
+// $Log: not supported by cvs2svn $
 // Revision 1.6.4.2  2003/12/09 11:46:48  simons
 // Mbist nameing changed, Artisan ram instance signal names fixed, some synthesis waning fixed.
 //
@@ -109,6 +111,11 @@ module or1200_dc_top(
 	// External i/f
 	dcsb_dat_o, dcsb_adr_o, dcsb_cyc_o, dcsb_stb_o, dcsb_we_o, dcsb_sel_o, dcsb_cab_o,
 	dcsb_dat_i, dcsb_ack_i, dcsb_err_i,
+`ifdef OR1200_DC_INVALID_COHERENCE
+	snooped_adr_i, snooped_we_i, snooped_ack_i,
+`elsif OR1200_DC_UPDATE_COHERENCE
+	snooped_adr_i, snooped_we_i, snooped_ack_i, snooped_dat_i, snooped_sel_i,
+`endif
 
 	// Internal i/f
 	dc_en,
@@ -139,6 +146,7 @@ input				rst;
 
 //
 // External I/F
+// Store buffer is between DC and data BIU.
 //
 output	[dw-1:0]		dcsb_dat_o;
 output	[31:0]			dcsb_adr_o;
@@ -160,10 +168,23 @@ input				dcqmem_cycstb_i;
 input				dcqmem_ci_i;
 input				dcqmem_we_i;
 input	[3:0]			dcqmem_sel_i;
-input	[3:0]			dcqmem_tag_i;
+input	[3:0]			dcqmem_tag_i; // ??? CHECKED, line 245
 input	[dw-1:0]		dcqmem_dat_i;
+
+`ifdef OR1200_DC_INVALID_COHERENCE
+input	[31:0]	snooped_adr_i;
+input				snooped_ack_i;
+input				snooped_we_i;
+`elsif OR1200_DC_UPDATE_COHERENCE
+input	[31:0]	snooped_adr_i;
+input	      	snooped_ack_i;
+input				snooped_we_i;
+input	[dw-1:0]	snooped_dat_i;
+input	[3:0]		snooped_sel_i;
+`endif
+
 output	[dw-1:0]		dcqmem_dat_o;
-output				dcqmem_ack_o;
+output				dcqmem_ack_o/* verilator isolate_assignments*/;
 output				dcqmem_rty_o;
 output				dcqmem_err_o;
 output	[3:0]			dcqmem_tag_o;
@@ -187,6 +208,8 @@ input	[31:0]			spr_dat_i;
 //
 // Internal wires and regs
 //
+//
+//
 wire				tag_v;
 wire	[`OR1200_DCTAG_W-2:0]	tag;
 wire	[dw-1:0]		to_dcram;
@@ -198,7 +221,10 @@ wire	[31:0]			dc_addr;
 wire				dcfsm_biu_read;
 wire				dcfsm_biu_write;
 reg				tagcomp_miss;
+
+
 wire	[`OR1200_DCINDXH:`OR1200_DCLS]	dctag_addr;
+wire	[`OR1200_DCINDXH:`OR1200_DCLS]	dcfsm_tag_adr;
 wire				dctag_en;
 wire				dctag_v; 
 wire				dc_inv;
@@ -207,6 +233,18 @@ wire				dcfsm_first_miss_ack;
 wire				dcfsm_first_miss_err;
 wire				dcfsm_burst;
 wire				dcfsm_tag_we;
+
+`ifdef OR1200_DC_INVALID_COHERENCE
+wire				snoop_checking;
+wire				cache_invalid;
+`elsif OR1200_DC_UPDATE_COHERENCE
+wire				snoop_checking;
+wire	[dw-1:0]	dcfsm_to_dcram;
+wire	[31:0]	dcfsm_ram_addr;
+wire				tmp_invalid;
+`endif
+
+//////////
 `ifdef OR1200_BIST
 //
 // RAM BIST
@@ -218,21 +256,37 @@ wire				mbist_tag_si = mbist_ram_so;
 assign				mbist_so_o = mbist_tag_so;
 `endif
 
+////////////////////////////////////////
 //
 // Simple assignments
 //
-assign dcsb_adr_o = dc_addr;
-assign dc_inv = spr_cs & spr_write;
-assign dctag_we = dcfsm_tag_we | dc_inv;
+`ifdef OR1200_DC_INVALID_COHERENCE
+assign dctag_addr = snoop_checking ? dcfsm_tag_adr : (dc_inv ? spr_dat_i[`OR1200_DCINDXH:`OR1200_DCLS] : dc_addr[`OR1200_DCINDXH:`OR1200_DCLS]);
+assign dctag_v = ~dc_inv & ~cache_invalid;
+
+`elsif OR1200_DC_UPDATE_COHERENCE
+assign dctag_addr = (snoop_checking | tmp_invalid) ? dcfsm_tag_adr : (dc_inv ? spr_dat_i[`OR1200_DCINDXH:`OR1200_DCLS] : dc_addr[`OR1200_DCINDXH:`OR1200_DCLS]);
+// assign dctag_v = ~dc_inv;
+assign dctag_v = ~dc_inv & ~tmp_invalid;
+
+`else
 assign dctag_addr = dc_inv ? spr_dat_i[`OR1200_DCINDXH:`OR1200_DCLS] : dc_addr[`OR1200_DCINDXH:`OR1200_DCLS];
-assign dctag_en = dc_inv | dc_en;
 assign dctag_v = ~dc_inv;
+`endif
+
+assign dcsb_adr_o = dc_en ? dc_addr : dcqmem_adr_i; // physical address
+assign dc_inv = spr_cs & spr_write; // special purpose registers write sth into the data cache. used for DC configuration, Block Prefetch register, Block Flush register, Block Invalidate register, etc. _inv : invalidate
+assign dctag_we = dcfsm_tag_we | dc_inv;
+
+// assign dctag_en = dc_inv | dc_en;
+assign dctag_en = 1'b1;
 
 //
 // Data to BIU is from DCRAM when DC is enabled or from LSU when
 // DC is disabled
 //
 assign dcsb_dat_o = dcqmem_dat_i;
+//write-through mode, QMEM --> (DC) --> SB --> Main Memory
 
 //
 // Bypases of the DC when DC is disabled
@@ -241,14 +295,21 @@ assign dcsb_cyc_o = (dc_en) ? dcfsm_biu_read | dcfsm_biu_write : dcqmem_cycstb_i
 assign dcsb_stb_o = (dc_en) ? dcfsm_biu_read | dcfsm_biu_write : dcqmem_cycstb_i;
 assign dcsb_we_o = (dc_en) ? dcfsm_biu_write : dcqmem_we_i;
 assign dcsb_sel_o = (dc_en & dcfsm_biu_read & !dcfsm_biu_write & !dcqmem_ci_i) ? 4'b1111 : dcqmem_sel_i;
-assign dcsb_cab_o = (dc_en) ? dcsb_cyc_o & dcfsm_burst : 1'b0;
+assign dcsb_cab_o = (dc_en) ? dcfsm_burst : 1'b0;
 assign dcqmem_rty_o = ~dcqmem_ack_o;
-assign dcqmem_tag_o = dcqmem_err_o ? `OR1200_DTAG_BE : dcqmem_tag_i;
-
+assign dcqmem_tag_o = dcqmem_err_o ? `OR1200_DTAG_BE : dcqmem_tag_i; // OR1200_DTAG_BE: Bus error exception
+                                                                     // data tag: wishbone spec, P20,33,34,139
 //
 // DC/LSU normal and error termination
 //
+`ifdef OR1200_DC_INVALID_COHERENCE
+assign dcqmem_ack_o = dc_en ? (snoop_checking ? 1'b0 : (dcfsm_first_hit_ack | dcfsm_first_miss_ack)) : dcsb_ack_i;
+`elsif OR1200_DC_UPDATE_COHERENCE
+assign dcqmem_ack_o = dc_en ? (snoop_checking ? 1'b0 : (dcfsm_first_hit_ack | dcfsm_first_miss_ack)) : dcsb_ack_i;
+`else
 assign dcqmem_ack_o = dc_en ? dcfsm_first_hit_ack | dcfsm_first_miss_ack : dcsb_ack_i;
+`endif
+
 assign dcqmem_err_o = dc_en ? dcfsm_first_miss_err : dcsb_err_i;
 
 //
@@ -259,23 +320,43 @@ assign dcqmem_err_o = dc_en ? dcfsm_first_miss_err : dcsb_err_i;
 //
 // Select between input data generated by LSU or by BIU
 //
+// assign to_dcram = (dcfsm_biu_read) ? dcsb_dat_i : dcqmem_dat_i;
+`ifdef OR1200_DC_INVALID_COHERENCE
 assign to_dcram = (dcfsm_biu_read) ? dcsb_dat_i : dcqmem_dat_i;
+`elsif OR1200_DC_UPDATE_COHERENCE
+assign to_dcram = snoop_checking ? dcfsm_to_dcram : ((dcfsm_biu_read) ? dcsb_dat_i : dcqmem_dat_i);
+`else
+assign to_dcram = (dcfsm_biu_read) ? dcsb_dat_i : dcqmem_dat_i;
+`endif
 
 //
 // Select between data generated by DCRAM or passed by BIU
 //
 assign dcqmem_dat_o = dcfsm_first_miss_ack | !dc_en ? dcsb_dat_i : from_dcram;
+//????? dcfsm_first_miss_ack 1 or 0 meaning ????? CHECKED, refer to or1200_dc_fsm.v
+//????? load goes through store buffer ????? CHECKED, refer to or1200_sb.v
+//????? notes in "Bonding" sheet, clarified ?????
 
 //
 // Tag comparison
-//
 always @(tag or saved_addr or tag_v) begin
-	if ((tag != saved_addr[31:`OR1200_DCTAGL]) || !tag_v)
-		tagcomp_miss = 1'b1;
-	else
-		tagcomp_miss = 1'b0;
+    if ((tag != saved_addr[31:`OR1200_DCTAGL]) || !tag_v) // OR1200_DCTAGL = 12
+            tagcomp_miss = 1'b1;
+    else
+            tagcomp_miss = 1'b0;
 end
 
+
+// By Liang
+// Snoop hit check
+//                                                  11:           4
+//assign dctag_addr = dc_inv ? spr_dat_i[`OR1200_DCINDXH:`OR1200_DCLS] : dc_addr[`OR1200_DCINDXH:`OR1200_DCLS];
+                                        //12
+	//.datain({dc_addr[31:`OR1200_DCTAGL], dctag_v}),// input of this tag mem
+// assign snoop_hit = ((snooped_adr_i[31:`OR1200_DCLS] == saved_addr[31:`OR1200_DCLS]) 
+//                         && snooped_we_i && !dcqmem_we_i) ? 1'b1: 1'b0;
+// 
+//////////
 //
 // Instantiation of DC Finite State Machine
 //
@@ -287,7 +368,15 @@ or1200_dc_fsm or1200_dc_fsm(
 	.dcqmem_ci_i(dcqmem_ci_i),
 	.dcqmem_we_i(dcqmem_we_i),
 	.dcqmem_sel_i(dcqmem_sel_i),
+
+`ifdef OR1200_DC_INVALID_COHERENCE
+	.tagcomp_miss_i(tagcomp_miss),
+`elsif OR1200_DC_UPDATE_COHERENCE
+	.tagcomp_miss_i(tagcomp_miss),
+`else
 	.tagcomp_miss(tagcomp_miss),
+`endif
+
 	.biudata_valid(dcsb_ack_i),
 	.biudata_error(dcsb_err_i),
 	.start_addr(dcqmem_adr_i),
@@ -301,6 +390,33 @@ or1200_dc_fsm or1200_dc_fsm(
 	.burst(dcfsm_burst),
 	.tag_we(dcfsm_tag_we),
 	.dc_addr(dc_addr)
+`ifdef OR1200_DC_INVALID_COHERENCE
+        // By Liang
+	, .dcfsm_tag_adr(dcfsm_tag_adr),
+	.tag(tag),
+	.tag_v(tag_v),
+	.snoop_checking(snoop_checking),
+	.cache_invalid(cache_invalid),
+        .snooped_we_i(snooped_we_i),
+        .snooped_adr_i(snooped_adr_i),
+        .snooped_ack_i(snooped_ack_i)
+`elsif OR1200_DC_UPDATE_COHERENCE
+        // By Liang
+	, .dcfsm_tag_adr(dcfsm_tag_adr),
+	.dcfsm_ram_addr(dcfsm_ram_addr),
+	.dcfsm_to_dcram(dcfsm_to_dcram),
+	.tag(tag),
+	.tag_v(tag_v),
+	.snoop_checking(snoop_checking),
+        // for random dc_en signal, invalid DC tag (refill not finished!!) when (dc_en == 0 && state == `OR1200_DCFSM_LREFILL3)
+	.tmp_invalid(tmp_invalid),
+        //
+        .snooped_we_i(snooped_we_i),
+        .snooped_adr_i(snooped_adr_i),
+        .snooped_sel_i(snooped_sel_i),
+        .snooped_dat_i(snooped_dat_i),
+        .snooped_ack_i(snooped_ack_i)
+`endif
 );
 
 //
@@ -315,8 +431,16 @@ or1200_dc_ram or1200_dc_ram(
 	.mbist_so_o(mbist_ram_so),
 	.mbist_ctrl_i(mbist_ctrl_i),
 `endif
+
+`ifdef OR1200_DC_INVALID_COHERENCE
 	.addr(dc_addr[`OR1200_DCINDXH:2]),
-	.en(dc_en),
+`elsif OR1200_DC_UPDATE_COHERENCE
+	.addr(dcfsm_ram_addr[`OR1200_DCINDXH:2]),
+`else
+	.addr(dc_addr[`OR1200_DCINDXH:2]),
+`endif
+	// .en(dc_en),
+	.en(1'b1),
 	.we(dcram_we),
 	.datain(to_dcram),
 	.dataout(from_dcram)
@@ -337,7 +461,9 @@ or1200_dc_tag or1200_dc_tag(
 	.addr(dctag_addr),
 	.en(dctag_en),
 	.we(dctag_we),
-	.datain({dc_addr[31:`OR1200_DCTAGL], dctag_v}),
+	.datain({dc_addr[31:`OR1200_DCTAGL], dctag_v}),// input of this mem
+        //.dataout({tag, tag_v})// output of this mem
+        // We also need a way to recognize that a cache block does not have valid information. For instance, when a processor starts up, the cache does not have good data, and the tag fields will be meaningless. Even after executing many instructions, some of the cache entries may still be empty. Thus, we need to know that the tag should be ignored for such entries. The most common method is to add a valid bit to indicate whether an entry contains a valid address. If the bit is not set, there cannot be a match for this block.
 	.tag_v(tag_v),
 	.tag(tag)
 );
