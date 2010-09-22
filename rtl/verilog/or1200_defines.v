@@ -250,136 +250,7 @@
 //
 //
 
-//
-// Dump VCD
-//
-//`define OR1200_VCD_DUMP
-
-//
-// Generate debug messages during simulation
-//
-//`define OR1200_VERBOSE
-
-// Enable multiprocessor mode
-`define OR1200_MP
-
-//  `define OR1200_ASIC
-////////////////////////////////////////////////////////
-//
-// Typical configuration for an ASIC
-//
-`ifdef OR1200_ASIC
-
-//
-// Target ASIC memories
-//
-//`define OR1200_ARTISAN_SSP
-//`define OR1200_ARTISAN_SDP
-//`define OR1200_ARTISAN_STP
-`define OR1200_VIRTUALSILICON_SSP
-//`define OR1200_VIRTUALSILICON_STP_T1
-//`define OR1200_VIRTUALSILICON_STP_T2
-
-//
-// Do not implement Data cache
-//
-//`define OR1200_NO_DC
-
-//
-// Do not implement Insn cache
-//
-//`define OR1200_NO_IC
-
-//
-// Do not implement Data MMU
-//
-//`define OR1200_NO_DMMU
-
-//
-// Do not implement Insn MMU
-//
-//`define OR1200_NO_IMMU
-
-//
-// Select between ASIC optimized and generic multiplier
-//
-//`define OR1200_ASIC_MULTP2_32X32
-`define OR1200_GENERIC_MULTP2_32X32
-
-//
-// Size/type of insn/data cache if implemented
-//
-// `define OR1200_IC_1W_512B
-// `define OR1200_IC_1W_4KB
-`define OR1200_IC_1W_8KB
-// `define OR1200_DC_1W_4KB
-`define OR1200_DC_1W_8KB
-
-`else
-
-
-/////////////////////////////////////////////////////////
-//
-// Typical configuration for an FPGA
-//
-
-//
-// Target FPGA memories
-//
-//`define OR1200_ALTERA_LPM
-//`define OR1200_XILINX_RAMB16
-//`define OR1200_XILINX_RAMB4
-//`define OR1200_XILINX_RAM32X1D
-//`define OR1200_USE_RAM16X1D_FOR_RAM32X1D
-`define OR1200_ACTEL
-
-//
-// Do not implement Data cache
-//
-`define OR1200_NO_DC
-
-//
-// Do not implement Insn cache
-//
-//`define OR1200_NO_IC
-
-//
-// Do not implement Data MMU
-//
-//`define OR1200_NO_DMMU
-
-//
-// Do not implement Insn MMU
-//
-//`define OR1200_NO_IMMU
-
-//
-// Select between ASIC and generic multiplier
-//
-// (Generic seems to trigger a bug in the Cadence Ncsim simulator)
-//
-//`define OR1200_ASIC_MULTP2_32X32
-`define OR1200_GENERIC_MULTP2_32X32
-
-//
-// Size/type of insn/data cache if implemented
-// (consider available FPGA memory resources)
-//
-//`define OR1200_IC_1W_512B
-//`define OR1200_IC_1W_4KB
-`define OR1200_IC_1W_8KB
-`define OR1200_DC_1W_4KB
-//`define OR1200_DC_1W_8KB
-
-`endif
-
-`ifdef OR1200_MP
-// Set the core identifier register value not as parameter
-// to the core, but as an input port to the system.
-// This can have advantages, when using verilator for example.
-//`define OR1200_MP_COREID_AS_PORT
-
-`endif
+`include "or1200_config.v"
 
 //////////////////////////////////////////////////////////
 //
@@ -582,7 +453,7 @@
 //
 // Implement HW Single Precision FPU
 //
-`define OR1200_FPU_IMPLEMENTED
+//`define OR1200_FPU_IMPLEMENTED
 
 //
 // Clock ratio RISC clock versus WB clock
