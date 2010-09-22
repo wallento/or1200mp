@@ -794,6 +794,9 @@ or1200_cpu or1200_cpu(
 	.spr_dat_immu(spr_dat_immu),
 	.spr_dat_du(spr_dat_du),
 	.spr_dat_npc(spr_dat_npc),
+`ifdef OR1200_MP
+	.spr_dat_coreid(spr_dat_coreid),
+`endif // OR1200_MP
 	.spr_cs(spr_cs),
 	.spr_we(spr_we)
 );
