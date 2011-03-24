@@ -365,6 +365,7 @@ or1200_dc_fsm or1200_dc_fsm(
 	.rst(rst),
 	.dc_en(dc_en),
 	.dcqmem_cycstb_i(dcqmem_cycstb_i),
+//	.dcqmem_ci_i(dcqmem_ci_i | (dcqmem_adr_i==32'h7fff_fffc) ),
 	.dcqmem_ci_i(dcqmem_ci_i),
 	.dcqmem_we_i(dcqmem_we_i),
 	.dcqmem_sel_i(dcqmem_sel_i),

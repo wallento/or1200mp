@@ -1,0 +1,50 @@
+ADDRESS_BLOCK onchip_ram RAMB16 [0x0000:0xffff]
+	BUS_BLOCK
+		testbench/onchip_ram/MEM[0].block_ram_3 [31:24];
+		testbench/onchip_ram/MEM[0].block_ram_2 [23:16];
+		testbench/onchip_ram/MEM[0].block_ram_1 [15:8];
+		testbench/onchip_ram/MEM[0].block_ram_0 [7:0];
+	END_BUS_BLOCK;
+	BUS_BLOCK
+		testbench/onchip_ram/MEM[1].block_ram_3 [31:24];
+		testbench/onchip_ram/MEM[1].block_ram_2 [23:16];
+		testbench/onchip_ram/MEM[1].block_ram_1 [15:8];
+		testbench/onchip_ram/MEM[1].block_ram_0 [7:0];
+	END_BUS_BLOCK;
+	BUS_BLOCK
+		testbench/onchip_ram/MEM[2].block_ram_3 [31:24];
+		testbench/onchip_ram/MEM[2].block_ram_2 [23:16];
+		testbench/onchip_ram/MEM[2].block_ram_1 [15:8];
+		testbench/onchip_ram/MEM[2].block_ram_0 [7:0];
+	END_BUS_BLOCK;
+	BUS_BLOCK
+		testbench/onchip_ram/MEM[3].block_ram_3 [31:24];
+		testbench/onchip_ram/MEM[3].block_ram_2 [23:16];
+		testbench/onchip_ram/MEM[3].block_ram_1 [15:8];
+		testbench/onchip_ram/MEM[3].block_ram_0 [7:0];
+	END_BUS_BLOCK;
+	BUS_BLOCK
+		testbench/onchip_ram/MEM[4].block_ram_3 [31:24];
+		testbench/onchip_ram/MEM[4].block_ram_2 [23:16];
+		testbench/onchip_ram/MEM[4].block_ram_1 [15:8];
+		testbench/onchip_ram/MEM[4].block_ram_0 [7:0];
+	END_BUS_BLOCK;
+	BUS_BLOCK
+		testbench/onchip_ram/MEM[5].block_ram_3 [31:24];
+		testbench/onchip_ram/MEM[5].block_ram_2 [23:16];
+		testbench/onchip_ram/MEM[5].block_ram_1 [15:8];
+		testbench/onchip_ram/MEM[5].block_ram_0 [7:0];
+	END_BUS_BLOCK;
+	BUS_BLOCK
+		testbench/onchip_ram/MEM[6].block_ram_3 [31:24];
+		testbench/onchip_ram/MEM[6].block_ram_2 [23:16];
+		testbench/onchip_ram/MEM[6].block_ram_1 [15:8];
+		testbench/onchip_ram/MEM[6].block_ram_0 [7:0];
+	END_BUS_BLOCK;
+	BUS_BLOCK
+		testbench/onchip_ram/MEM[7].block_ram_3 [31:24];
+		testbench/onchip_ram/MEM[7].block_ram_2 [23:16];
+		testbench/onchip_ram/MEM[7].block_ram_1 [15:8];
+		testbench/onchip_ram/MEM[7].block_ram_0 [7:0];
+	END_BUS_BLOCK;
+END_ADDRESS_BLOCK;

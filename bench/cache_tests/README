@@ -1,0 +1,22 @@
+(c) 2010 Stefan Wallentowitz, stefan.wallentowitz@tum.de
+
+= Description =
+
+Tests for the cache coherency implemented in or1200mp.
+
+= Folder Layout =
+
+* verilog: verilog sources for the cache tests and additional components
+* sim: contains verilator simulation
+* sw: contains the testing software
+* syn: contains synthesis files
+   * boards/$BOARD: structuring of FPGA boards tested
+      * board.v: Board description, such as RESET_ACTIVE_LOW etc.
+      * $BOARD.ucf: Constraints file for the board setup
+      * nodc,nocoherency,invalidation,update: Test cases
+         * or1200_config.v: Core configuration
+         * further board/synthesizer specific files
+
+= How to build =
+
+Further description can be found in the corresponding synthesis and simulation folders.
