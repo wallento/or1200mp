@@ -228,7 +228,7 @@ wire	[dw-1:0]		id_simm;
 wire	[dw-1:2]		id_branch_addrtarget;
 wire	[dw-1:2]		ex_branch_addrtarget;
 wire	[`OR1200_ALUOP_WIDTH-1:0]	alu_op;
-wire	[`OR1200_SHROTOP_WIDTH-1:0]	shrot_op;
+wire	[`OR1200_ALUOP2_WIDTH-1:0]	alu_op2;
 wire	[`OR1200_COMPOP_WIDTH-1:0]	comp_op;
 wire	[`OR1200_BRANCHOP_WIDTH-1:0]	pre_branch_op;
 wire	[`OR1200_BRANCHOP_WIDTH-1:0]	branch_op;
@@ -278,6 +278,10 @@ wire				flag_we_fpu;
 wire				carry;
 wire				cyforw;
 wire				cy_we_alu;
+wire				ovforw;
+wire				ov_we_alu;
+wire				ovforw_mult_mac;
+wire				ov_we_mult_mac;   
 wire				cy_we_rf;
 wire				lsu_stall;
 wire				epcr_we;
@@ -299,6 +303,7 @@ wire    			fpu_except_started;
 wire	[31:0]			wb_insn;
 wire				sig_syscall;
 wire				sig_trap;
+wire    			sig_range;
 wire				sig_fp;
 wire	[31:0]			spr_dat_cfgr;
 wire	[31:0]			spr_dat_rf;
@@ -318,7 +323,7 @@ wire				ex_macrc_op;
 wire	[`OR1200_MACOP_WIDTH-1:0] id_mac_op;
 wire	[`OR1200_MACOP_WIDTH-1:0] mac_op;
 wire	[31:0]			mult_mac_result;
-wire				mac_stall;
+wire				mult_mac_stall;
 wire	[13:0]			except_trig;
 wire	[13:0]			except_stop;
 wire				genpc_refetch;
@@ -400,9 +405,15 @@ assign flagforw = (flag_we_alu & flagforw_alu) | (flagforw_fpu & flag_we_fpu);
 assign flag_we = (flag_we_alu | flag_we_fpu) & ~abort_mvspr;
 
 //
-//  Flag for any MTSPR instructions, that must block execution, to indicate done
+// Flag for any MTSPR instructions, that must block execution, to indicate done
 //
 assign mtspr_done = mtspr_dc_done;
+
+//
+// Range exception
+//
+assign sig_range = sr[`OR1200_SR_OV];
+   
    
    
 //
@@ -491,8 +502,8 @@ or1200_ctrl or1200_ctrl(
 	.rf_rda(rf_rda),
 	.rf_rdb(rf_rdb),
 	.alu_op(alu_op),
+	.alu_op2(alu_op2),			
 	.mac_op(mac_op),
-	.shrot_op(shrot_op),
 	.comp_op(comp_op),
 	.rf_addrw(rf_addrw),
 	.rfwb_op(rfwb_op),
@@ -589,7 +600,7 @@ or1200_alu or1200_alu(
 	.mult_mac_result(mult_mac_result),
 	.macrc_op(ex_macrc_op),
 	.alu_op(alu_op),
-	.shrot_op(shrot_op),
+	.alu_op2(alu_op2),		      
 	.comp_op(comp_op),
 	.cust5_op(cust5_op),
 	.cust5_limm(cust5_limm),
@@ -598,6 +609,8 @@ or1200_alu or1200_alu(
 	.flag_we(flag_we_alu),
 	.cyforw(cyforw),
 	.cy_we(cy_we_alu),
+	.ovforw(ovforw),
+	.ov_we(ov_we_alu),		      
 	.flag(flag),
 	.carry(carry)
 );
@@ -648,7 +661,9 @@ or1200_mult_mac or1200_mult_mac(
 	.mac_op(mac_op),
 	.alu_op(alu_op),
 	.result(mult_mac_result),
-	.mac_stall_r(mac_stall),
+	.ovforw(ovforw_mult_mac), 
+	.ov_we(ov_we_mult_mac),
+	.mult_mac_stall(mult_mac_stall),
 	.spr_cs(spr_cs[`OR1200_SPR_GROUP_MAC]),
 	.spr_write(spr_we),
 	.spr_addr(spr_addr),
@@ -673,6 +688,8 @@ or1200_sprs or1200_sprs(
 	.cyforw(cyforw),
 	.cy_we(cy_we_rf),
 	.carry(carry),
+	.ovforw(ovforw | ovforw_mult_mac),
+	.ov_we(ov_we_alu | ov_we_mult_mac),
 	.to_wbmux(sprs_dataout),
 
 	.du_addr(du_addr),
@@ -792,7 +809,7 @@ or1200_freeze or1200_freeze(
 	.force_dslot_fetch(force_dslot_fetch),
 	.abort_ex(abort_ex),
 	.du_stall(du_stall),
-	.mac_stall(mac_stall),
+	.mac_stall(mult_mac_stall),
 	.saving_if_insn(saving_if_insn),
 	.genpc_freeze(genpc_freeze),
 	.if_freeze(if_freeze),
@@ -813,7 +830,7 @@ or1200_except or1200_except(
 	.sig_dbuserr(except_dbuserr),
 	.sig_illegal(except_illegal),
 	.sig_align(except_align),
-	.sig_range(1'b0),
+	.sig_range(sig_range),
 	.sig_dtlbmiss(except_dtlbmiss),
 	.sig_dmmufault(except_dmmufault),
 	.sig_int(sig_int),
