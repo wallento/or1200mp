@@ -90,7 +90,9 @@ input         flag;
 reg	[width-1:0]		result;
 reg	[width-1:0]		shifted_rotated;
 reg	[width-1:0]		extended;   
+`ifdef OR1200_IMPL_ALU_CUST5
 reg	[width-1:0]		result_cust5;
+`endif
 reg				flagforw;
 reg				flagcomp;
 reg				flag_we;
@@ -131,10 +133,8 @@ assign a_eq_b = !(|result_sum);
 assign a_lt_b = comp_op[3] ? ((a[width-1] & !b[width-1]) |  
 			      (!a[width-1] & !b[width-1] & result_sum[width-1])|
 			      (a[width-1] & b[width-1] & result_sum[width-1])):
-// a < b if (a - b) subtraction wrapped and a[width-1] wasn't set
-		(result_sum[width-1] & !a[width-1]) |
-// or if (a - b) wrapped and both a[width-1] and b[width-1] were set
-		(result_sum[width-1] & a[width-1] & b[width-1] );
+		(a < b);
+
 `endif
    
 `ifdef OR1200_IMPL_SUB
@@ -169,6 +169,11 @@ assign b_mux = b;
 assign {cy_sum, result_sum} = (a + b_mux) + carry_in;
 // Numbers either both +ve and bit 31 of result set
 assign ov_sum = ((!a[width-1] & !b_mux[width-1]) & result_sum[width-1]) |
+`ifdef OR1200_IMPL_SUB
+		// Subtract larger negative from smaller positive
+		((!a[width-1] & b_mux[width-1]) & result_sum[width-1] &
+		 alu_op==`OR1200_ALUOP_SUB) |
+`endif
 // or both -ve and bit 31 of result clear
 		((a[width-1] & b_mux[width-1]) & !result_sum[width-1]);  
 assign result_and = a & b;
@@ -189,10 +194,13 @@ end
 // Central part of the ALU
 //
 always @(alu_op or alu_op2 or a or b or result_sum or result_and or macrc_op
-	 or shifted_rotated or mult_mac_result or flag or result_cust5 or carry
+	 or shifted_rotated or mult_mac_result or flag or carry
 `ifdef OR1200_IMPL_ALU_EXT
          or extended
 `endif	 
+`ifdef OR1200_IMPL_ALU_CUST5
+	 or result_cust5
+`endif
 ) begin
 `ifdef OR1200_CASE_DEFAULT
 	casez (alu_op)		// synopsys parallel_case
@@ -244,7 +252,7 @@ always @(alu_op or alu_op2 or a or b or result_sum or result_and or macrc_op
 		                result = extended;
 		end
 		`OR1200_ALUOP_EXTW  : begin
-		                result = extended;
+		                result = a;
 		end		
 `endif     
 		`OR1200_ALUOP_MOVHI : begin
