@@ -179,7 +179,7 @@
 // Set the core identifier register value not as parameter 
 // to the core, but as an input port to the system.
 // This can have advantages, when using verilator for example.
-`define OR1200_MP_COREID_AS_PORT
+//`define OR1200_MP_COREID_AS_PORT
 `endif
 
 //////////////////////////////////////////////////////////
