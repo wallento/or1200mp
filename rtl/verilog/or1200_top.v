@@ -89,8 +89,7 @@ module or1200_top(
 	pm_cpustall_i,
 	pm_clksd_o, pm_dc_gate_o, pm_ic_gate_o, pm_dmmu_gate_o, 
 	pm_immu_gate_o, pm_tt_gate_o, pm_cpu_gate_o, pm_wakeup_o, pm_lvolt_o
-
-,sig_tick		  
+	,sig_tick		  
 
 `ifdef OR1200_MP
 `ifdef OR1200_MP_COREID_AS_PORT
@@ -731,8 +730,8 @@ or1200_cpu(
 	.spr_dat_du(spr_dat_du),
 	.spr_dat_npc(spr_dat_npc),
 	.spr_cs(spr_cs),
-	.spr_we(spr_we)
-    .mtspr_dc_done(mtspr_dc_done)
+	.spr_we(spr_we),
+        .mtspr_dc_done(mtspr_dc_done)
 	// Multiprocessor version
 `ifdef OR1200_MP
 `ifdef OR1200_MP_COREID_AS_PORT
